@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, Images, Loader2, UserRound } from "lucide-react"
 
+import { ProjectInfoMarkdown } from "components/project-info-markdown"
 import { Button } from "components/ui/button"
 import {
   Card,
@@ -58,7 +59,14 @@ function PublicEmbedCard({
   return (
     <Card className="gap-4 py-4 shadow-none">
       <CardHeader className="px-4">
-        <CardTitle className="text-sm font-medium">{embed.title}</CardTitle>
+        <CardTitle className="text-sm font-medium">
+          <Link
+            href={`/user/${encodeURIComponent(profileSlug)}/embed/${encodeURIComponent(embed.slug)}`}
+            className="hover:underline"
+          >
+            {embed.title}
+          </Link>
+        </CardTitle>
         {embed.description && (
           <CardDescription>{embed.description}</CardDescription>
         )}
@@ -102,6 +110,7 @@ function PublicEmbedCard({
 
 function PublicUserEmbeds({ login }: { login: string }) {
   const [profile, setProfile] = React.useState<PublicProfile | null>(null)
+  const [bio, setBio] = React.useState("")
   const [embeds, setEmbeds] = React.useState<PublicEmbed[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -123,6 +132,12 @@ function PublicUserEmbeds({ login }: { login: string }) {
         return
       }
       setProfile(profile)
+
+      const { data: bioData } = await supabase.rpc("get_public_profile_bio", {
+        p_profile_id: profile.id,
+      })
+      if (cancelled) return
+      setBio(bioData ?? "")
 
       const { data, error: embedsError } = await supabase
         .from("standalone_embeds")
@@ -216,6 +231,8 @@ function PublicUserEmbeds({ login }: { login: string }) {
             </nav>
           </header>
 
+          <ProjectInfoMarkdown content={bio} className="mt-5" />
+
           <nav
             role="tablist"
             aria-label="Profile sections"
@@ -247,7 +264,7 @@ function PublicUserEmbeds({ login }: { login: string }) {
                 <Images className="size-8 text-muted-foreground" />
                 <p className="font-medium">No public embeds yet</p>
                 <p className="text-sm text-muted-foreground">
-                  Approved custom embeds will appear here.
+                  Published custom embeds will appear here.
                 </p>
               </CardContent>
             </Card>

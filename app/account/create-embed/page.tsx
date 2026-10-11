@@ -102,14 +102,14 @@ function CreateEmbedPage() {
       slug: crypto.randomUUID().slice(0, 8),
       title: embed.title.trim(),
       description: embed.description.trim(),
-      status: "pending" as const,
+      status: "draft" as const,
     }))
 
     const { data, error: insertError } = await supabase
       .from("standalone_embeds")
       .insert(rows)
       .select(
-        "id, owner_id, slug, title, description, project_id, status, created_at"
+        "id, owner_id, slug, title, description, project_id, status, views_count, upvotes_count, created_at"
       )
 
     setSaving(false)
@@ -120,7 +120,7 @@ function CreateEmbedPage() {
 
     setEmbeds([])
     setNotice(
-      `${data.length} embed${data.length === 1 ? "" : "s"} submitted for review.`
+      `${data.length} embed${data.length === 1 ? "" : "s"} saved as draft. Send ${data.length === 1 ? "it" : "them"} for review on the submit page.`
     )
   }
 
@@ -135,8 +135,8 @@ function CreateEmbedPage() {
         </Button>
         <h1 className="mt-4 text-2xl font-semibold">Create embed</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Design up to {maximumEmbedsPerSubmission} custom image embeds for
-          review.
+          Design up to {maximumEmbedsPerSubmission} custom image embeds, then
+          send them for review on the submit page.
         </p>
       </div>
 
@@ -150,9 +150,9 @@ function CreateEmbedPage() {
         <aside className="lg:sticky lg:top-20">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Submit embeds</CardTitle>
+              <CardTitle className="text-lg">Save embeds</CardTitle>
               <CardDescription>
-                Each approved embed gets its own image URL under your profile.
+                Saved embeds are drafts until you submit them for review.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -172,7 +172,10 @@ function CreateEmbedPage() {
                 disabled={saving || embeds.length === 0 || !profileSlug}
               >
                 {saving && <Loader2 className="size-4 animate-spin" />}
-                {saving ? "Submitting" : "Submit for review"}
+                {saving ? "Saving" : "Save as draft"}
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/submit">Go to submit page</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/account/embeds">My embeds</Link>

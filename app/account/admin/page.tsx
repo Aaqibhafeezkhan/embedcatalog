@@ -105,7 +105,7 @@ function AdminPage() {
       const { data: pendingEmbeds, error: embedsError } = await supabase
         .from("standalone_embeds")
         .select(
-          "id, owner_id, slug, title, description, project_id, status, created_at"
+          "id, owner_id, slug, title, description, project_id, status, views_count, upvotes_count, created_at"
         )
         .eq("status", "pending")
         .order("created_at", { ascending: true })

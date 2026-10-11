@@ -20,7 +20,7 @@ export default function PrivacyPage() {
     <main className="site-container py-10">
       <h1 className="text-2xl font-semibold">Privacy Notice</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Last updated: September 19, 2026
+        Last updated: October 11, 2026
       </p>
       <div className="mt-6 flex flex-col gap-8 leading-relaxed text-muted-foreground">
         <section>
@@ -53,9 +53,23 @@ export default function PrivacyPage() {
               authentication records, and account timestamps.
             </li>
             <li>
+              Public profile information you choose to provide, such as a public
+              username, display name, avatar, a Markdown profile description,
+              and links to Twitter (X), YouTube, or GitHub.
+            </li>
+            <li>
               Project information you submit, including a project name,
               description, URL, tags, social links, images, embed content,
               moderation comments, and publication status.
+            </li>
+            <li>
+              Custom embeds you create, including their titles, descriptions,
+              status, and creation dates.
+            </li>
+            <li>
+              Activity information, such as your upvotes and bookmarks of
+              projects and embeds, and aggregate counters of project
+              impressions, embed page views, and upvotes.
             </li>
             <li>
               Messages and support information you send to us by email or other
@@ -134,8 +148,13 @@ export default function PrivacyPage() {
           <p className="mt-2">
             Published project information, project URLs, social links, embeds,
             and other content selected for publication are public and may be
-            indexed, copied, cached, or displayed by third parties. Do not
-            submit information you want to keep private.
+            indexed, copied, cached, or displayed by third parties. Your public
+            profile (username, display name, avatar, description, social links,
+            and your approved embeds) is public, as are upvote and view totals
+            shown on projects and embeds. Your individual upvotes and bookmarks
+            are not shown publicly. Embed images are served from public URLs and
+            can be embedded on other websites. Do not submit information you
+            want to keep private.
           </p>
         </section>
         <section>
@@ -144,12 +163,13 @@ export default function PrivacyPage() {
           </h2>
           <p className="mt-2">
             The service may use essential cookies or local storage for
-            authentication, security, preferences, and basic operation. If
-            Google Analytics or another non-essential tracker is used, we will
-            request consent where required and provide a way to refuse or
-            withdraw it. External websites, including project websites and
-            social networks, have their own privacy practices and are not
-            controlled by us.
+            authentication, security, preferences, and basic operation. We also
+            use browser session storage to avoid counting the same view
+            repeatedly and to batch impression counts. If Google Analytics or
+            another non-essential tracker is used, we will request consent where
+            required and provide a way to refuse or withdraw it. External
+            websites, including project websites and social networks, have their
+            own privacy practices and are not controlled by us.
           </p>
         </section>
         <section>

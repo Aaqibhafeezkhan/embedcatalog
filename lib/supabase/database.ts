@@ -9,6 +9,7 @@ export type Database = {
           display_name: string | null
           avatar_url: string | null
           socials: Record<string, string>
+          bio: string
           created_at: string
         }
         Insert: {
@@ -18,6 +19,7 @@ export type Database = {
           display_name?: string | null
           avatar_url?: string | null
           socials?: Record<string, string>
+          bio?: string
           created_at?: string
         }
         Update: {
@@ -27,6 +29,7 @@ export type Database = {
           display_name?: string | null
           avatar_url?: string | null
           socials?: Record<string, string>
+          bio?: string
           created_at?: string
         }
         Relationships: []
@@ -39,7 +42,9 @@ export type Database = {
           title: string
           description: string
           project_id: string | null
-          status: "pending" | "approved" | "rejected"
+          status: "draft" | "pending" | "approved" | "rejected"
+          views_count: number
+          upvotes_count: number
           created_at: string
         }
         Insert: {
@@ -49,13 +54,41 @@ export type Database = {
           title: string
           description?: string
           project_id?: string | null
-          status?: "pending" | "approved" | "rejected"
+          status?: "draft" | "pending" | "approved" | "rejected"
           created_at?: string
         }
         Update: {
           project_id?: string | null
-          status?: "pending" | "approved" | "rejected"
+          status?: "draft" | "pending" | "approved" | "rejected"
         }
+        Relationships: []
+      }
+      standalone_embed_bookmarks: {
+        Row: {
+          embed_id: string
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          embed_id: string
+          user_id: string
+          created_at?: string
+        }
+        Update: never
+        Relationships: []
+      }
+      standalone_embed_upvotes: {
+        Row: {
+          embed_id: string
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          embed_id: string
+          user_id: string
+          created_at?: string
+        }
+        Update: never
         Relationships: []
       }
       project_embeds: {
@@ -238,6 +271,14 @@ export type Database = {
       }
       set_standalone_embed_project: {
         Args: { p_embed_id: string; p_project_id: string | null }
+        Returns: undefined
+      }
+      get_public_profile_bio: {
+        Args: { p_profile_id: string }
+        Returns: string | null
+      }
+      record_standalone_embed_view: {
+        Args: { p_embed_id: string }
         Returns: undefined
       }
       record_project_impressions: {

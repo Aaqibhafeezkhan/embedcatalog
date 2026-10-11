@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react"
 
+import { BookmarkedEmbeds } from "components/bookmarked-embeds"
 import { Button } from "components/ui/button"
 import {
   Card,
@@ -27,6 +28,7 @@ import {
 } from "components/ui/card"
 import { Input } from "components/ui/input"
 import { Label } from "components/ui/label"
+import { Textarea } from "components/ui/textarea"
 import { useAuth } from "components/auth-provider"
 import { useNotification } from "components/notification-provider"
 import {
@@ -62,6 +64,7 @@ function AccountPage({
   const [avatarUploading, setAvatarUploading] = React.useState(false)
   const [avatarError, setAvatarError] = React.useState<string | null>(null)
   const [profileSlug, setProfileSlug] = React.useState("")
+  const [profileBio, setProfileBio] = React.useState("")
   const [profileSaving, setProfileSaving] = React.useState(false)
   const [profileError, setProfileError] = React.useState<string | null>(null)
   const [projects, setProjects] = React.useState<OwnedProject[]>([])
@@ -77,6 +80,9 @@ function AccountPage({
     CatalogProject[]
   >([])
   const [bookmarksLoading, setBookmarksLoading] = React.useState(false)
+  const [bookmarksTab, setBookmarksTab] = React.useState<"projects" | "embeds">(
+    "projects"
+  )
   const [bookmarksError, setBookmarksError] = React.useState<string | null>(
     null
   )
@@ -101,6 +107,14 @@ function AccountPage({
         .maybeSingle()
 
       if (!cancelled) setProfileSlug(data?.slug ?? "")
+
+      const { data: bioData } = await supabase
+        .from("profiles")
+        .select("bio")
+        .eq("id", userId)
+        .maybeSingle()
+
+      if (!cancelled) setProfileBio(bioData?.bio ?? "")
     }
 
     void loadProfileSlug()
@@ -379,7 +393,11 @@ function AccountPage({
 
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ display_name: profileName, socials: profileSocials })
+      .update({
+        display_name: profileName,
+        socials: profileSocials,
+        bio: profileBio.trim(),
+      })
       .eq("id", user.id)
 
     setProfileSaving(false)
@@ -582,6 +600,20 @@ function AccountPage({
                       />
                     </div>
                     <div className="grid gap-2">
+                      <Label htmlFor="profile-bio">About you (optional)</Label>
+                      <Textarea
+                        id="profile-bio"
+                        value={profileBio}
+                        onChange={(event) => setProfileBio(event.target.value)}
+                        maxLength={1000}
+                        rows={5}
+                        placeholder="Tell people about yourself. Markdown is supported."
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Shown publicly on your profile. Markdown is supported.
+                      </p>
+                    </div>
+                    <div className="grid gap-2">
                       <Label htmlFor="profile-twitter">Twitter</Label>
                       <Input
                         id="profile-twitter"
@@ -726,10 +758,34 @@ function AccountPage({
               <div>
                 <h1 className="text-xl font-semibold">Bookmarks</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Projects you have saved.
+                  Projects and embeds you have saved.
                 </p>
               </div>
-              {bookmarksLoading ? (
+              <div className="flex w-fit gap-1 rounded-md border p-1">
+                {(
+                  [
+                    ["projects", "Projects"],
+                    ["embeds", "Embeds"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setBookmarksTab(id)}
+                    aria-pressed={bookmarksTab === id}
+                    className={`cursor-pointer rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${
+                      bookmarksTab === id
+                        ? "bg-secondary text-secondary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {bookmarksTab === "embeds" ? (
+                <BookmarkedEmbeds />
+              ) : bookmarksLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" />
                   Loading bookmarks

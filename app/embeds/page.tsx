@@ -7,8 +7,17 @@ import { Loader2, Search, X } from "lucide-react"
 import { CustomEmbedCard } from "components/project-embeds"
 import { Card, CardContent } from "components/ui/card"
 import { Input } from "components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "components/ui/select"
 import { siteConfig } from "lib/site"
 import { supabase } from "lib/supabase/client"
+
+type SourceFilter = "all" | "projects" | "users"
 
 type PublicEmbed = {
   key: string
@@ -20,7 +29,10 @@ type PublicEmbed = {
   projectSlug?: string
   profileSlug?: string
   standaloneSlug?: string
+  embedId?: string
   avatarUrl?: string | null
+  viewsCount?: number
+  upvotesCount?: number
 }
 
 function EmbedsPageContent() {
@@ -30,11 +42,16 @@ function EmbedsPageContent() {
   const [embeds, setEmbeds] = React.useState<PublicEmbed[]>([])
   const [loading, setLoading] = React.useState(true)
   const [query, setQuery] = React.useState(() => searchParams.get("q") ?? "")
+  const [source, setSource] = React.useState<SourceFilter>(() => {
+    const value = searchParams.get("type")
+    return value === "projects" || value === "users" ? value : "all"
+  })
 
   // Keep the URL shareable without triggering a Next.js navigation.
   React.useEffect(() => {
     const params = new URLSearchParams()
     if (query) params.set("q", query)
+    if (source !== "all") params.set("type", source)
 
     const queryString = params.toString()
     if (queryString === window.location.search.slice(1)) {
@@ -46,7 +63,7 @@ function EmbedsPageContent() {
       "",
       queryString ? `${pathname}?${queryString}` : pathname
     )
-  }, [query, pathname])
+  }, [query, source, pathname])
 
   React.useEffect(() => {
     let cancelled = false
@@ -59,7 +76,7 @@ function EmbedsPageContent() {
           .eq("status", "published"),
         supabase
           .from("standalone_embeds")
-          .select("id, owner_id, slug, title")
+          .select("id, owner_id, slug, title, views_count, upvotes_count")
           .eq("status", "approved"),
       ])
 
@@ -133,6 +150,9 @@ function EmbedsPageContent() {
             profileSlug: profile.slug,
             avatarUrl: profile.avatar_url,
             standaloneSlug: embed.slug,
+            embedId: embed.id,
+            viewsCount: embed.views_count,
+            upvotesCount: embed.upvotes_count,
           },
         ]
       })
@@ -150,15 +170,22 @@ function EmbedsPageContent() {
 
   const filteredEmbeds = React.useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return embeds
+    const bySource =
+      source === "all"
+        ? embeds
+        : embeds.filter(
+            (embed) =>
+              embed.source === (source === "users" ? "user" : "project")
+          )
+    if (!q) return bySource
 
-    return embeds.filter(
+    return bySource.filter(
       (embed) =>
         embed.title.toLowerCase().includes(q) ||
         embed.projectName?.toLowerCase().includes(q) ||
         embed.profileSlug?.toLowerCase().includes(q)
     )
-  }, [embeds, query])
+  }, [embeds, query, source])
 
   return (
     <main className="site-container py-10">
@@ -196,6 +223,22 @@ function EmbedsPageContent() {
             </button>
           )}
         </div>
+        <Select
+          value={source}
+          onValueChange={(value) => setSource(value as SourceFilter)}
+        >
+          <SelectTrigger
+            className="ml-auto w-44 shrink-0"
+            aria-label="Embed source"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="projects">Projects</SelectItem>
+            <SelectItem value="users">Users</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {loading ? (
@@ -240,6 +283,9 @@ function EmbedsPageContent() {
                 }
                 projectUrl={embed.projectUrl}
                 title={embed.title}
+                embedId={embed.embedId}
+                viewsCount={embed.viewsCount}
+                upvotesCount={embed.upvotesCount}
                 projectName={embed.projectName}
                 projectHref={
                   embed.projectSlug

@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Check, Copy, Lock, UserRound } from "lucide-react"
+import { ArrowUp, Check, Copy, Eye, Lock, UserRound } from "lucide-react"
 
 import {
   Card,
@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "components/ui/card"
+import { EmbedBookmark } from "components/embed-bookmark"
 import { Embed } from "components/ui/embed"
 import {
   type EmbedKind,
@@ -147,6 +148,9 @@ export function CustomEmbedCard({
   projectName,
   projectHref,
   creator,
+  viewsCount,
+  upvotesCount,
+  embedId,
 }: {
   slug: string
   shortId?: string
@@ -160,6 +164,9 @@ export function CustomEmbedCard({
     slug: string
     avatarUrl: string | null
   }
+  viewsCount?: number
+  upvotesCount?: number
+  embedId?: string
 }) {
   const [theme, setTheme] = React.useState<EmbedTheme>("light")
   const { width, height } = getCustomEmbedSize()
@@ -183,7 +190,18 @@ export function CustomEmbedCard({
   return (
     <Card className="gap-4 py-4 shadow-none">
       <CardHeader className="border-b px-4 pb-4">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <CardTitle className="text-sm font-medium">
+          {standaloneProfileSlug && standaloneSlug ? (
+            <Link
+              href={`/user/${encodeURIComponent(standaloneProfileSlug)}/embed/${encodeURIComponent(standaloneSlug)}`}
+              className="hover:underline"
+            >
+              {title}
+            </Link>
+          ) : (
+            title
+          )}
+        </CardTitle>
         {projectName && projectHref ? (
           <Link
             href={projectHref}
@@ -214,8 +232,23 @@ export function CustomEmbedCard({
           </Link>
         ) : null}
         <CardAction>
-          <ThemeSwitch theme={theme} onThemeChange={setTheme} />
+          <div className="flex items-center gap-3">
+            <ThemeSwitch theme={theme} onThemeChange={setTheme} />
+            {embedId && <EmbedBookmark embedId={embedId} />}
+          </div>
         </CardAction>
+        {viewsCount !== undefined && upvotesCount !== undefined && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Eye className="size-3.5" />
+              {viewsCount.toLocaleString("en-US")}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <ArrowUp className="size-3.5" />
+              {upvotesCount.toLocaleString("en-US")}
+            </span>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-3 px-4">
         <a

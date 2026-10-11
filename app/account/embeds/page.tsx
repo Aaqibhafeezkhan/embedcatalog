@@ -153,7 +153,7 @@ function StandaloneEmbedCard({
                       ) : (
                         <Trash2 className="size-4" />
                       )}
-                      Delete submission
+                      Delete
                     </DropdownMenu.Item>
                   </>
                 )}
@@ -219,7 +219,11 @@ function StandaloneEmbedCard({
         ) : (
           <div className="rounded-md border bg-muted/40 p-4">
             <p className="text-sm font-medium capitalize">
-              {embed.status === "pending" ? "Pending review" : "Rejected"}
+              {embed.status === "pending"
+                ? "Pending review"
+                : embed.status === "draft"
+                  ? "Draft"
+                  : "Rejected"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {embed.description || "No description provided."}
@@ -273,7 +277,7 @@ function AccountEmbedsPage() {
           supabase
             .from("standalone_embeds")
             .select(
-              "id, owner_id, slug, title, description, project_id, status, created_at"
+              "id, owner_id, slug, title, description, project_id, status, views_count, upvotes_count, created_at"
             )
             .eq("owner_id", user!.id)
             .order("created_at", { ascending: false }),
@@ -482,7 +486,7 @@ function AccountEmbedsPage() {
         <div>
           <h2 className="font-semibold">Custom embeds</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Link approved embeds to any of your projects from the actions menu.
+            Link published embeds to any of your projects from the actions menu.
           </p>
         </div>
         {standaloneEmbeds.length === 0 ? (

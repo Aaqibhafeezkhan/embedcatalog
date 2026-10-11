@@ -16,6 +16,7 @@ import {
 } from "components/ui/card"
 import { Input } from "components/ui/input"
 import { Label } from "components/ui/label"
+import { Textarea } from "components/ui/textarea"
 import { supabase } from "lib/supabase/client"
 
 function normalizeUsername(value: string) {
@@ -101,6 +102,7 @@ function SetupProfilePage() {
     const formData = new FormData(event.currentTarget)
     const slug = normalizeUsername(String(formData.get("slug") ?? ""))
     const displayName = String(formData.get("displayName") ?? "").trim()
+    const bio = String(formData.get("bio") ?? "").trim()
     const twitter = String(formData.get("twitter") ?? "").trim()
     const youtube = String(formData.get("youtube") ?? "").trim()
     const github = String(formData.get("github") ?? "").trim()
@@ -159,6 +161,7 @@ function SetupProfilePage() {
         display_name: displayName,
         avatar_url: avatarUrl,
         socials,
+        bio,
       })
       .eq("id", user.id)
 
@@ -274,6 +277,16 @@ function SetupProfilePage() {
                 placeholder="Your name"
                 maxLength={80}
                 required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="profile-bio">About you (optional)</Label>
+              <Textarea
+                id="profile-bio"
+                name="bio"
+                maxLength={1000}
+                rows={4}
+                placeholder="Tell people about yourself. Markdown is supported."
               />
             </div>
             <div className="grid gap-2">

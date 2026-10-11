@@ -61,16 +61,11 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
     let cancelled = false
 
-    supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single()
-      .then(({ data }) => {
-        if (!cancelled) {
-          setAdminUserId(data?.role === "admin" ? userId : null)
-        }
-      })
+    supabase.rpc("current_user_profile_role").then(({ data }) => {
+      if (!cancelled) {
+        setAdminUserId(data === "admin" ? userId : null)
+      }
+    })
 
     return () => {
       cancelled = true

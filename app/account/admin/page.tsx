@@ -102,39 +102,43 @@ function AdminPage() {
     let cancelled = false
 
     async function loadPendingStandaloneEmbeds() {
-      const [embedsResult, profilesResult] = await Promise.all([
-        supabase
-          .from("standalone_embeds")
-          .select(
-            "id, owner_id, slug, title, description, project_id, status, created_at"
-          )
-          .eq("status", "pending")
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("standalone_embed_profiles")
-          .select("owner_id, slug, created_at"),
-      ])
+      const { data: pendingEmbeds, error: embedsError } = await supabase
+        .from("standalone_embeds")
+        .select(
+          "id, owner_id, slug, title, description, project_id, status, created_at"
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
 
       if (cancelled) return
 
-      if (embedsResult.error || profilesResult.error) {
-        setProjectsError(
-          embedsResult.error?.message ??
-            profilesResult.error?.message ??
-            "Could not load pending embeds."
-        )
+      if (embedsError) {
+        setProjectsError(embedsError.message)
+        setStandaloneEmbedsLoading(false)
+        return
+      }
+
+      const ownerIds = [
+        ...new Set((pendingEmbeds ?? []).map((embed) => embed.owner_id)),
+      ]
+      const { data: profiles, error: profilesError } = ownerIds.length
+        ? await supabase.rpc("get_public_profiles", {
+            p_profile_ids: ownerIds,
+          })
+        : { data: [], error: null }
+
+      if (cancelled) return
+      if (profilesError) {
+        setProjectsError(profilesError.message)
         setStandaloneEmbedsLoading(false)
         return
       }
 
       const profileSlugs = new Map(
-        (profilesResult.data ?? []).map((profile) => [
-          profile.owner_id,
-          profile.slug,
-        ])
+        (profiles ?? []).map((profile) => [profile.id, profile.slug])
       )
       setPendingStandaloneEmbeds(
-        (embedsResult.data ?? []).map((embed) => ({
+        (pendingEmbeds ?? []).map((embed) => ({
           ...embed,
           profileSlug: profileSlugs.get(embed.owner_id) ?? "",
         }))

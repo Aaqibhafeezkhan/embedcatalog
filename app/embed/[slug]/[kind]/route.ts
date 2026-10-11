@@ -5,7 +5,11 @@ import {
   type EmbedKind,
   type EmbedTheme,
 } from "lib/embed"
-import { renderCustomEmbedImage, renderEmbedImage } from "lib/embed-image"
+import {
+  renderCustomEmbedImage,
+  renderEmbedImage,
+  renderHacktoberfestEmbedImage,
+} from "lib/embed-image"
 import { createPublicServerClient } from "lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -24,6 +28,16 @@ export async function GET(
   { params }: { params: Promise<{ slug: string; kind: string }> }
 ) {
   const { slug, kind: file } = await params
+
+  if (slug === "hacktoberfest-2026") {
+    const contributorMatch = file.match(/^([a-zA-Z0-9-]+)\.png$/)
+    if (!contributorMatch) return new Response("Not found", { status: 404 })
+
+    return imageResponse(
+      await renderHacktoberfestEmbedImage(contributorMatch[1])
+    )
+  }
+
   const defaultMatch = file.match(
     /^(license|added|organization)(?:\.theme-(dark))?\.png$/
   )

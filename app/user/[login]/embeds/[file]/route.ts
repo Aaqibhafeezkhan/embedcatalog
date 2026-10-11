@@ -15,18 +15,17 @@ export async function GET(
 
   const [, embedSlug, darkTheme] = match
   const client = createPublicServerClient()
-  const { data: profile } = await client
-    .from("standalone_embed_profiles")
-    .select("owner_id")
-    .eq("slug", login)
-    .maybeSingle()
+  const { data: profiles } = await client.rpc("get_public_profiles", {
+    p_profile_slug: login,
+  })
+  const profile = profiles?.[0]
 
   if (!profile) return new Response("Not found", { status: 404 })
 
   const { data: embed } = await client
     .from("standalone_embeds")
     .select("title, description")
-    .eq("owner_id", profile.owner_id)
+    .eq("owner_id", profile.id)
     .eq("slug", embedSlug)
     .eq("status", "approved")
     .maybeSingle()

@@ -7,15 +7,20 @@ import { Loader2, Search, X } from "lucide-react"
 import { CustomEmbedCard } from "components/project-embeds"
 import { Card, CardContent } from "components/ui/card"
 import { Input } from "components/ui/input"
+import { siteConfig } from "lib/site"
 import { supabase } from "lib/supabase/client"
 
 type PublicEmbed = {
-  id: string
-  shortId: string
+  key: string
+  source: "project" | "user"
   title: string
-  projectName: string
-  projectSlug: string
   projectUrl: string
+  shortId?: string
+  projectName?: string
+  projectSlug?: string
+  profileSlug?: string
+  standaloneSlug?: string
+  avatarUrl?: string | null
 }
 
 function EmbedsPageContent() {
@@ -47,47 +52,92 @@ function EmbedsPageContent() {
     let cancelled = false
 
     async function loadEmbeds() {
-      const { data: projects, error: projectsError } = await supabase
-        .from("projects")
-        .select("id, name, slug, url")
-        .eq("status", "published")
+      const [projectsResult, userEmbedsResult] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("id, name, slug, url")
+          .eq("status", "published"),
+        supabase
+          .from("standalone_embeds")
+          .select("id, owner_id, slug, title")
+          .eq("status", "approved"),
+      ])
 
       if (cancelled) return
-      if (projectsError || !projects || projects.length === 0) {
+      if (projectsResult.error || userEmbedsResult.error) {
         setEmbeds([])
         setLoading(false)
         return
       }
 
+      const projects = projectsResult.data ?? []
+      const userEmbeds = userEmbedsResult.data ?? []
       const projectIds = projects.map((project) => project.id)
-      const { data: projectEmbeds } = await supabase
-        .from("project_embeds")
-        .select("id, project_id, short_id, title, position")
-        .in("project_id", projectIds)
-        .order("position", { ascending: true })
+      const ownerIds = [...new Set(userEmbeds.map((embed) => embed.owner_id))]
+
+      const [projectEmbedsResult, profilesResult] = await Promise.all([
+        projectIds.length
+          ? supabase
+              .from("project_embeds")
+              .select("id, project_id, short_id, title, position")
+              .in("project_id", projectIds)
+              .order("position", { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
+        ownerIds.length
+          ? supabase.rpc("get_public_profiles", {
+              p_profile_ids: ownerIds,
+            })
+          : Promise.resolve({ data: [], error: null }),
+      ])
 
       if (cancelled) return
+      if (projectEmbedsResult.error || profilesResult.error) {
+        setEmbeds([])
+        setLoading(false)
+        return
+      }
 
       const projectsById = new Map(
         projects.map((project) => [project.id, project])
       )
-      setEmbeds(
-        (projectEmbeds ?? []).flatMap((embed) => {
-          const project = projectsById.get(embed.project_id)
-          if (!project) return []
-
-          return [
-            {
-              id: embed.id,
-              shortId: embed.short_id,
-              title: embed.title,
-              projectName: project.name,
-              projectSlug: project.slug,
-              projectUrl: project.url,
-            },
-          ]
-        })
+      const profilesById = new Map(
+        profilesResult.data.map((profile) => [profile.id, profile])
       )
+      const projectEmbeds = projectEmbedsResult.data.flatMap((embed) => {
+        const project = projectsById.get(embed.project_id)
+        if (!project) return []
+
+        return [
+          {
+            key: `project-${embed.id}`,
+            source: "project" as const,
+            shortId: embed.short_id,
+            title: embed.title,
+            projectName: project.name,
+            projectSlug: project.slug,
+            projectUrl: project.url,
+          },
+        ]
+      })
+      const standaloneEmbeds = userEmbeds.flatMap((embed) => {
+        const profile = profilesById.get(embed.owner_id)
+        if (!profile) return []
+
+        const profileUrl = `${siteConfig.url}/user/${encodeURIComponent(profile.slug)}`
+        return [
+          {
+            key: `user-${embed.id}`,
+            source: "user" as const,
+            title: embed.title,
+            projectUrl: profileUrl,
+            profileSlug: profile.slug,
+            avatarUrl: profile.avatar_url,
+            standaloneSlug: embed.slug,
+          },
+        ]
+      })
+
+      setEmbeds([...projectEmbeds, ...standaloneEmbeds])
       setLoading(false)
     }
 
@@ -105,7 +155,8 @@ function EmbedsPageContent() {
     return embeds.filter(
       (embed) =>
         embed.title.toLowerCase().includes(q) ||
-        embed.projectName.toLowerCase().includes(q)
+        embed.projectName?.toLowerCase().includes(q) ||
+        embed.profileSlug?.toLowerCase().includes(q)
     )
   }, [embeds, query])
 
@@ -121,7 +172,7 @@ function EmbedsPageContent() {
           )}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Custom embeds from projects in EmbedCatalog.
+          Custom embeds from projects and users in EmbedCatalog.
         </p>
       </div>
 
@@ -173,14 +224,36 @@ function EmbedsPageContent() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {filteredEmbeds.map((embed) => (
-            <div key={embed.id}>
+            <div key={embed.key}>
               <CustomEmbedCard
-                slug={embed.projectSlug}
+                slug={
+                  embed.source === "user"
+                    ? embed.profileSlug!
+                    : embed.projectSlug!
+                }
                 shortId={embed.shortId}
+                standaloneProfileSlug={
+                  embed.source === "user" ? embed.profileSlug : undefined
+                }
+                standaloneSlug={
+                  embed.source === "user" ? embed.standaloneSlug : undefined
+                }
                 projectUrl={embed.projectUrl}
                 title={embed.title}
                 projectName={embed.projectName}
-                projectHref={`/projects/${embed.projectSlug}`}
+                projectHref={
+                  embed.projectSlug
+                    ? `/projects/${embed.projectSlug}`
+                    : undefined
+                }
+                creator={
+                  embed.profileSlug
+                    ? {
+                        slug: embed.profileSlug,
+                        avatarUrl: embed.avatarUrl ?? null,
+                      }
+                    : undefined
+                }
               />
             </div>
           ))}

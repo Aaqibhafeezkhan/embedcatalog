@@ -20,10 +20,6 @@ import { supabase } from "lib/supabase/client"
 
 const maximumEmbedsPerSubmission = 20
 
-function createAnonymousProfileSlug() {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 12)
-}
-
 const defaultEmbed = (id: number): CreateProjectEmbed => ({
   id,
   title: "Built with EmbedCatalog",
@@ -53,49 +49,17 @@ function CreateEmbedPage() {
     let cancelled = false
 
     async function loadProfile() {
-      const { data: existingProfile, error: profileError } = await supabase
-        .from("standalone_embed_profiles")
-        .select("owner_id, slug, created_at")
-        .eq("owner_id", user!.id)
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("slug")
+        .eq("id", user!.id)
         .maybeSingle()
 
       if (cancelled) return
-
-      let currentProfile = existingProfile
-      if (!currentProfile && !profileError) {
-        for (let attempt = 0; attempt < 5; attempt += 1) {
-          const { data, error: createError } = await supabase
-            .from("standalone_embed_profiles")
-            .insert({
-              owner_id: user!.id,
-              slug: createAnonymousProfileSlug(),
-            })
-            .select("owner_id, slug, created_at")
-            .single()
-
-          if (cancelled) return
-          if (!createError && data) {
-            currentProfile = data
-            break
-          }
-          if (createError?.code !== "23505") {
-            setError(createError?.message ?? "Could not create a profile ID.")
-            setFetchingProfile(false)
-            return
-          }
-        }
-
-        if (!currentProfile) {
-          setError("Could not generate a unique profile ID. Please try again.")
-          setFetchingProfile(false)
-          return
-        }
-      }
-
-      if (profileError || !currentProfile) {
-        setError(profileError?.message ?? "Could not create a profile slug.")
+      if (profileError || !profile) {
+        setError(profileError?.message ?? "Could not find your profile.")
       } else {
-        setProfileSlug(currentProfile.slug)
+        setProfileSlug(profile.slug)
       }
       setFetchingProfile(false)
     }

@@ -5,33 +5,29 @@ export type Database = {
         Row: {
           id: string
           role: "user" | "admin"
+          slug: string
+          display_name: string | null
+          avatar_url: string | null
+          socials: Record<string, string>
           created_at: string
         }
         Insert: {
           id: string
           role?: "user" | "admin"
+          slug?: string
+          display_name?: string | null
+          avatar_url?: string | null
+          socials?: Record<string, string>
           created_at?: string
         }
         Update: {
           id?: string
           role?: "user" | "admin"
-          created_at?: string
-        }
-        Relationships: []
-      }
-      standalone_embed_profiles: {
-        Row: {
-          owner_id: string
-          slug: string
-          created_at: string
-        }
-        Insert: {
-          owner_id: string
-          slug: string
-          created_at?: string
-        }
-        Update: {
           slug?: string
+          display_name?: string | null
+          avatar_url?: string | null
+          socials?: Record<string, string>
+          created_at?: string
         }
         Relationships: []
       }
@@ -247,6 +243,23 @@ export type Database = {
       record_project_impressions: {
         Args: { project_ids: string[] }
         Returns: undefined
+      }
+      current_user_profile_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string | null
+      }
+      get_public_profiles: {
+        Args: {
+          p_profile_ids?: string[] | null
+          p_profile_slug?: string | null
+        }
+        Returns: {
+          id: string
+          slug: string
+          display_name: string
+          avatar_url: string | null
+          socials: Record<string, string>
+        }[]
       }
     }
     Enums: {

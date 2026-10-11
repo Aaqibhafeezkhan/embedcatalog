@@ -28,6 +28,7 @@ import {
 import { Input } from "components/ui/input"
 import { Label } from "components/ui/label"
 import { useAuth } from "components/auth-provider"
+import { useNotification } from "components/notification-provider"
 import {
   ProjectsGrid,
   type Project as CatalogProject,
@@ -53,15 +54,16 @@ function AccountPage({
 }) {
   const router = useRouter()
   const { user, loading, isAdmin, signOut } = useAuth()
+  const { notify } = useNotification()
   const [activeSection, setActiveSection] = React.useState<
     "settings" | "projects" | "bookmarks"
   >(initialSection)
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
   const [avatarUploading, setAvatarUploading] = React.useState(false)
   const [avatarError, setAvatarError] = React.useState<string | null>(null)
+  const [profileSlug, setProfileSlug] = React.useState("")
   const [profileSaving, setProfileSaving] = React.useState(false)
   const [profileError, setProfileError] = React.useState<string | null>(null)
-  const [profileSaved, setProfileSaved] = React.useState(false)
   const [projects, setProjects] = React.useState<OwnedProject[]>([])
   const [projectsLoading, setProjectsLoading] = React.useState(false)
   const [projectsError, setProjectsError] = React.useState<string | null>(null)
@@ -84,6 +86,28 @@ function AccountPage({
       router.replace("/login")
     }
   }, [loading, user, router])
+
+  React.useEffect(() => {
+    if (!user) return
+
+    let cancelled = false
+    const userId = user.id
+
+    async function loadProfileSlug() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("slug")
+        .eq("id", userId)
+        .maybeSingle()
+
+      if (!cancelled) setProfileSlug(data?.slug ?? "")
+    }
+
+    void loadProfileSlug()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   React.useEffect(() => {
     if (!user || activeSection !== "projects") {
@@ -307,8 +331,19 @@ function AccountPage({
       data: { custom_avatar_url: data.publicUrl },
     })
 
+    if (updateError) {
+      setAvatarUploading(false)
+      setAvatarError(updateError.message)
+      return
+    }
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ avatar_url: data.publicUrl })
+      .eq("id", user.id)
+
     setAvatarUploading(false)
-    if (updateError) setAvatarError(updateError.message)
+    if (profileError) setAvatarError(profileError.message)
   }
 
   async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
@@ -323,7 +358,6 @@ function AccountPage({
 
     setProfileSaving(true)
     setProfileError(null)
-    setProfileSaved(false)
 
     const profileSocials = {
       ...(profileTwitter ? { twitter: profileTwitter } : {}),
@@ -337,12 +371,24 @@ function AccountPage({
       },
     })
 
-    setProfileSaving(false)
     if (error) {
+      setProfileSaving(false)
       setProfileError(error.message)
       return
     }
-    setProfileSaved(true)
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ display_name: profileName, socials: profileSocials })
+      .eq("id", user.id)
+
+    setProfileSaving(false)
+    if (profileError) {
+      setProfileError(profileError.message)
+      return
+    }
+
+    notify("Profile saved.")
   }
 
   if (loading || !user) {
@@ -359,12 +405,6 @@ function AccountPage({
     (user.user_metadata?.full_name as string | undefined) ??
     (user.user_metadata?.user_name as string | undefined) ??
     user.email
-  const login = String(
-    user.user_metadata?.user_name ??
-      user.user_metadata?.preferred_username ??
-      user.email?.split("@")[0] ??
-      ""
-  )
   const profileSocials = user.user_metadata?.profile_socials as
     { twitter?: string; youtube?: string; github?: string } | undefined
 
@@ -511,15 +551,19 @@ function AccountPage({
                   )}
                   <div className="flex flex-col gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="profile-login">Login</Label>
+                      <Label htmlFor="profile-nickname">Nickname</Label>
                       <Input
-                        id="profile-login"
-                        value={login}
+                        id="profile-nickname"
+                        value={profileSlug}
                         readOnly
                         aria-readonly="true"
-                        autoComplete="username"
+                        autoComplete="off"
                         className="bg-muted text-muted-foreground"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        This is your public profile URL. You can choose it once
+                        during initial setup.
+                      </p>
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="profile-name">Name</Label>
@@ -534,7 +578,6 @@ function AccountPage({
                             string | undefined) ??
                           ""
                         }
-                        onChange={() => setProfileSaved(false)}
                         placeholder="Your name"
                       />
                     </div>
@@ -546,7 +589,6 @@ function AccountPage({
                         type="url"
                         autoComplete="url"
                         defaultValue={profileSocials?.twitter ?? ""}
-                        onChange={() => setProfileSaved(false)}
                         placeholder="https://twitter.com/username"
                       />
                     </div>
@@ -558,7 +600,6 @@ function AccountPage({
                         type="url"
                         autoComplete="url"
                         defaultValue={profileSocials?.youtube ?? ""}
-                        onChange={() => setProfileSaved(false)}
                         placeholder="https://youtube.com/@channel"
                       />
                     </div>
@@ -570,7 +611,6 @@ function AccountPage({
                         type="url"
                         autoComplete="url"
                         defaultValue={profileSocials?.github ?? ""}
-                        onChange={() => setProfileSaved(false)}
                         placeholder="https://github.com/username"
                       />
                     </div>
@@ -578,11 +618,6 @@ function AccountPage({
                   {profileError && (
                     <p className="text-sm text-destructive" role="alert">
                       {profileError}
-                    </p>
-                  )}
-                  {profileSaved && (
-                    <p className="text-sm text-muted-foreground" role="status">
-                      Profile saved.
                     </p>
                   )}
                   <Button

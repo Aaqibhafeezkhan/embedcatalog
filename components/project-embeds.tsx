@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Check, Copy, Lock } from "lucide-react"
+import { Check, Copy, Lock, UserRound } from "lucide-react"
 
 import {
   Card,
@@ -146,6 +146,7 @@ export function CustomEmbedCard({
   title,
   projectName,
   projectHref,
+  creator,
 }: {
   slug: string
   shortId?: string
@@ -155,6 +156,10 @@ export function CustomEmbedCard({
   title: string
   projectName?: string
   projectHref?: string
+  creator?: {
+    slug: string
+    avatarUrl: string | null
+  }
 }) {
   const [theme, setTheme] = React.useState<EmbedTheme>("light")
   const { width, height } = getCustomEmbedSize()
@@ -185,6 +190,27 @@ export function CustomEmbedCard({
             className="text-xs text-muted-foreground hover:text-foreground hover:underline"
           >
             {projectName}
+          </Link>
+        ) : creator ? (
+          <Link
+            href={`/user/${encodeURIComponent(creator.slug)}`}
+            className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
+          >
+            <span className="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
+              {creator.avatarUrl ? (
+                <Image
+                  src={creator.avatarUrl}
+                  alt=""
+                  width={20}
+                  height={20}
+                  unoptimized
+                  className="size-full object-cover"
+                />
+              ) : (
+                <UserRound className="size-3" />
+              )}
+            </span>
+            <span>@{creator.slug}</span>
           </Link>
         ) : null}
         <CardAction>
@@ -346,15 +372,15 @@ function ProjectEmbeds({
       if (cancelled || embedsError || !embeds?.length) return
 
       const ownerIds = [...new Set(embeds.map((embed) => embed.owner_id))]
-      const { data: profiles, error: profilesError } = await supabase
-        .from("standalone_embed_profiles")
-        .select("owner_id, slug")
-        .in("owner_id", ownerIds)
+      const { data: profiles, error: profilesError } = await supabase.rpc(
+        "get_public_profiles",
+        { p_profile_ids: ownerIds }
+      )
 
       if (cancelled || profilesError || !profiles) return
 
       const profileSlugs = new Map(
-        profiles.map((profile) => [profile.owner_id, profile.slug])
+        profiles.map((profile) => [profile.id, profile.slug])
       )
       setAttachedStandaloneEmbeds(
         embeds.flatMap((embed) => {

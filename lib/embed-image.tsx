@@ -154,3 +154,84 @@ export async function renderCustomEmbedImage(
     }
   )
 }
+
+export async function renderHacktoberfestEmbedImage(login: string) {
+  const font = await loadFont()
+  const colors = imageColors.light
+
+  return new ImageResponse(
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        border: `1px solid ${colors.border}`,
+        borderRadius: 4,
+        background: colors.background,
+        color: colors.text,
+        fontFamily: "Geist SemiBold",
+      }}
+    >
+      <div
+        style={{
+          minWidth: 0,
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          paddingLeft: 16,
+          paddingRight: 8,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            color: colors.muted,
+            fontSize: 11,
+            lineHeight: 1.5,
+            whiteSpace: "nowrap",
+          }}
+        >
+          HACKTOBERFEST 2026
+        </div>
+        <div
+          style={{
+            display: "flex",
+            maxWidth: 254,
+            overflow: "hidden",
+            fontSize: 15,
+            lineHeight: 1.4,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {login}
+        </div>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          paddingRight: 14,
+          color: colors.muted,
+          fontSize: 13,
+          fontWeight: 600,
+          whiteSpace: "nowrap",
+        }}
+      >
+        EmbedCatalog
+      </div>
+    </div>,
+    {
+      width: 320,
+      height: 84,
+      fonts: [
+        {
+          name: "Geist SemiBold",
+          data: font,
+          style: "normal",
+          weight: 600,
+        },
+      ],
+    }
+  )
+}

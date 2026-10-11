@@ -261,9 +261,9 @@ function AccountEmbedsPage() {
       const [profileResult, projectsResult, standaloneResult] =
         await Promise.all([
           supabase
-            .from("standalone_embed_profiles")
+            .from("profiles")
             .select("slug")
-            .eq("owner_id", user!.id)
+            .eq("id", user!.id)
             .maybeSingle(),
           supabase
             .from("projects")
@@ -418,13 +418,6 @@ function AccountEmbedsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {profileSlug && (
-            <Button variant="outline" asChild>
-              <Link href={`/user/${encodeURIComponent(profileSlug)}`}>
-                View public profile
-              </Link>
-            </Button>
-          )}
           <Button asChild>
             <Link href="/account/create-embed">Create embed</Link>
           </Button>

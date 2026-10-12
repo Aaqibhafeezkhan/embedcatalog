@@ -48,6 +48,7 @@ const features = [
   "Featured in curated articles",
   "Promotion in X (Twitter) posts",
   "Promotion on other platforms",
+  "Up to 15 custom embeds (Free: 3)",
   "Premium embeds",
 ]
 

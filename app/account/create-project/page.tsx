@@ -22,6 +22,8 @@ import { ProjectInfoMarkdown } from "components/project-info-markdown"
 import { supabase } from "lib/supabase/client"
 import { useCreateProjectDraft } from "./draft-context"
 
+const maxProjectsPerAccount = 3
+
 function CreateProjectPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
@@ -40,10 +42,34 @@ function CreateProjectPage() {
   } = draft
   const [saveError, setSaveError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
+  const [projectCount, setProjectCount] = React.useState<number | null>(null)
 
   React.useEffect(() => {
     if (!loading && !user) router.replace("/login")
   }, [loading, router, user])
+
+  React.useEffect(() => {
+    if (!user) return
+
+    let cancelled = false
+
+    supabase
+      .from("projects")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id)
+      .then(({ count, error }) => {
+        if (cancelled) return
+        if (error) {
+          setSaveError("Could not check your project limit. Please try again.")
+        } else {
+          setProjectCount(count ?? 0)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   if (loading || !user) {
     return (
@@ -56,6 +82,19 @@ function CreateProjectPage() {
   const ownerId = user.id
 
   async function saveProject() {
+    if (projectCount === null) {
+      setSaveError(
+        "Your project limit is still being checked. Please try again."
+      )
+      return
+    }
+    if (projectCount >= maxProjectsPerAccount) {
+      setSaveError(
+        `You can create up to ${maxProjectsPerAccount} projects per account. Delete a project before creating another.`
+      )
+      return
+    }
+
     const name = title.trim()
     const description = shortDescription.trim()
     const url = projectUrl.trim()
@@ -151,7 +190,9 @@ function CreateProjectPage() {
         </Button>
         <h1 className="mt-4 text-2xl font-semibold">Create project</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Add project details and configure embeds on a separate page.
+          Add project details and configure embeds on a separate page. You can
+          create up to {maxProjectsPerAccount} projects per account
+          {projectCount === null ? "." : ` (${projectCount} used).`}
         </p>
       </div>
 
@@ -355,7 +396,9 @@ function CreateProjectPage() {
             <CardHeader>
               <CardTitle className="text-lg">Save project</CardTitle>
               <CardDescription>
-                Your project will be saved as a draft.
+                {projectCount !== null && projectCount >= maxProjectsPerAccount
+                  ? "Delete one of your existing projects to create another."
+                  : "Your project will be saved as a draft."}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -364,7 +407,14 @@ function CreateProjectPage() {
                   {saveError}
                 </p>
               )}
-              <Button onClick={() => void saveProject()} disabled={saving}>
+              <Button
+                onClick={() => void saveProject()}
+                disabled={
+                  saving ||
+                  projectCount === null ||
+                  projectCount >= maxProjectsPerAccount
+                }
+              >
                 {saving && <Loader2 className="size-4 animate-spin" />}
                 {saving ? "Saving" : "Save project"}
               </Button>

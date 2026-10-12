@@ -18,19 +18,6 @@ type Project = {
   submission_comment: string | null
 }
 
-type SubmitEmbed = {
-  id: string
-  title: string
-  status: "draft" | "pending" | "approved" | "rejected"
-}
-
-const embedStatusLabel: Record<SubmitEmbed["status"], string> = {
-  draft: "Draft",
-  pending: "Awaiting review",
-  approved: "Published",
-  rejected: "Rejected",
-}
-
 const statusLabel: Record<ProjectStatus, string> = {
   draft: "Draft",
   pending: "Awaiting review",
@@ -50,65 +37,6 @@ function SubmitProjectPanel() {
   const [submittingId, setSubmittingId] = React.useState<string | null>(null)
   const [submitError, setSubmitError] = React.useState<string | null>(null)
   const projectsLoading = Boolean(user && projectsLoadedFor !== user.id)
-
-  const [embeds, setEmbeds] = React.useState<SubmitEmbed[]>([])
-  const [embedsLoadedFor, setEmbedsLoadedFor] = React.useState<string | null>(
-    null
-  )
-  const [embedsError, setEmbedsError] = React.useState<string | null>(null)
-  const [submittingEmbedId, setSubmittingEmbedId] = React.useState<
-    string | null
-  >(null)
-  const embedsLoading = Boolean(user && embedsLoadedFor !== user.id)
-
-  React.useEffect(() => {
-    if (!user) return
-
-    let cancelled = false
-
-    supabase
-      .from("standalone_embeds")
-      .select("id, title, status")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) {
-          setEmbedsError(error.message)
-        } else {
-          setEmbedsError(null)
-          setEmbeds(data)
-        }
-        setEmbedsLoadedFor(user.id)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [user])
-
-  async function submitEmbedForReview(embedId: string) {
-    setSubmittingEmbedId(embedId)
-    setEmbedsError(null)
-
-    const { error } = await supabase
-      .from("standalone_embeds")
-      .update({ status: "pending" })
-      .eq("id", embedId)
-
-    setSubmittingEmbedId(null)
-
-    if (error) {
-      setEmbedsError(error.message)
-      return
-    }
-
-    setEmbeds((current) =>
-      current.map((embed) =>
-        embed.id === embedId ? { ...embed, status: "pending" } : embed
-      )
-    )
-  }
 
   React.useEffect(() => {
     if (!user) return
@@ -308,70 +236,6 @@ function SubmitProjectPanel() {
               )
             })}
           </ul>
-        )}
-      </div>
-
-      <div className="rounded-xl border p-8">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-lg font-semibold">Your embeds</p>
-          <Button variant="outline" asChild>
-            <Link href="/account/create-embed">
-              <Plus className="size-4" />
-              Create embed
-            </Link>
-          </Button>
-        </div>
-
-        {embedsLoading ? (
-          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Loading embeds
-          </div>
-        ) : (
-          <>
-            {embedsError && (
-              <p className="mt-4 text-sm text-destructive" role="alert">
-                {embedsError}
-              </p>
-            )}
-            {embeds.length === 0 ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                You haven&rsquo;t created an embed yet.
-              </p>
-            ) : (
-              <ul className="mt-4 flex flex-col gap-3">
-                {embeds.map((embed) => (
-                  <li key={embed.id} className="rounded-lg border p-5">
-                    <div className="flex items-center justify-between gap-4">
-                      <p className="min-w-0 truncate font-medium">
-                        {embed.title}
-                      </p>
-                      <span className="shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                        {embedStatusLabel[embed.status]}
-                      </span>
-                    </div>
-                    {(embed.status === "draft" ||
-                      embed.status === "rejected") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="mt-3"
-                        onClick={() => void submitEmbedForReview(embed.id)}
-                        disabled={submittingEmbedId === embed.id}
-                      >
-                        {submittingEmbedId === embed.id ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <Mail className="size-4" />
-                        )}
-                        Submit for review
-                      </Button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
         )}
       </div>
     </div>

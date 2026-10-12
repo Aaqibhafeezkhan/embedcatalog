@@ -12,10 +12,13 @@ import {
   Ellipsis,
   Images,
   Loader2,
+  Pencil,
   Trash2,
 } from "lucide-react"
 
 import { useAuth } from "components/auth-provider"
+import { useNotification } from "components/notification-provider"
+import { StandaloneEmbedEditDialog } from "components/standalone-embed-edit-dialog"
 import { Button } from "components/ui/button"
 import {
   Card,
@@ -45,28 +48,41 @@ type OwnedProject = {
   status: string
 }
 type ProjectEmbedWithProject = ProjectEmbed & { project: OwnedProject }
+type PendingProjectRequest = {
+  embed_id: string
+  project_id: string | null
+}
 
 function StandaloneEmbedCard({
   embed,
   profileSlug,
   projects,
   linkedProject,
+  pendingProjectRequest,
   linking,
   deleting,
   onProjectChange,
   onDelete,
+  onEmbedUpdated,
 }: {
   embed: StandaloneEmbed
   profileSlug: string | null
   projects: OwnedProject[]
   linkedProject?: OwnedProject
+  pendingProjectRequest?: PendingProjectRequest
   linking: boolean
   deleting: boolean
   onProjectChange: (projectId: string | null) => void
   onDelete: () => void
+  onEmbedUpdated: (embed: StandaloneEmbed) => void
 }) {
   const [theme, setTheme] = React.useState<StandaloneEmbedTheme>("light")
   const [copied, setCopied] = React.useState(false)
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false)
+  const [editWindowExpired, setEditWindowExpired] = React.useState(false)
+  const { notify } = useNotification()
+  const editExpiresAt = new Date(embed.created_at).getTime() + 86400000
+  const editingAllowed = !editWindowExpired && embed.edit_count < 20
   const imageSrc = profileSlug
     ? getPublicStandaloneEmbedSrc(
         siteConfig.url,
@@ -87,13 +103,40 @@ function StandaloneEmbedCard({
     }
   }
 
+  React.useEffect(() => {
+    const timer = window.setTimeout(
+      () => setEditWindowExpired(true),
+      Math.max(0, editExpiresAt - Date.now())
+    )
+    return () => window.clearTimeout(timer)
+  }, [editExpiresAt])
+
+  function requestEdit() {
+    if (Date.now() >= editExpiresAt) {
+      setEditWindowExpired(true)
+      notify("This embed can no longer be edited after the first 24 hours.")
+      return
+    }
+    if (embed.edit_count >= 20) {
+      notify("This embed has reached its 20-edit limit.")
+      return
+    }
+    setEditDialogOpen(true)
+  }
+
   return (
     <Card className="gap-4 py-4 shadow-none">
       <CardHeader className="border-b px-4 pb-4">
         <CardTitle className="text-sm font-medium">{embed.title}</CardTitle>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{embed.slug}.png</span>
-          <span className="capitalize">{embed.status}</span>
+          {pendingProjectRequest ? (
+            <span>Application pending</span>
+          ) : linkedProject ? (
+            <span>Linked to {linkedProject.name}</span>
+          ) : (
+            <span className="capitalize">{embed.status}</span>
+          )}
         </div>
         <CardAction>
           <DropdownMenu.Root>
@@ -117,15 +160,18 @@ function StandaloneEmbedCard({
                 className="z-50 min-w-52 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
               >
                 <DropdownMenu.Label className="px-2 py-1.5 text-xs text-muted-foreground">
-                  {linkedProject
-                    ? `Linked to ${linkedProject.name}`
-                    : "Link to project"}
+                  {pendingProjectRequest
+                    ? "Application pending review"
+                    : linkedProject
+                      ? `Linked to ${linkedProject.name}`
+                      : "Link to project"}
                 </DropdownMenu.Label>
                 <DropdownMenu.Item
                   onSelect={() => onProjectChange(null)}
+                  disabled={linking || Boolean(pendingProjectRequest)}
                   className="flex cursor-pointer items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
                 >
-                  Not linked
+                  {linkedProject ? "Request unlink" : "Not linked"}
                   {!linkedProject && <Check className="size-4" />}
                 </DropdownMenu.Item>
                 <DropdownMenu.Separator className="my-1 h-px bg-border" />
@@ -133,6 +179,11 @@ function StandaloneEmbedCard({
                   <DropdownMenu.Item
                     key={project.id}
                     onSelect={() => onProjectChange(project.id)}
+                    disabled={
+                      linking ||
+                      Boolean(pendingProjectRequest) ||
+                      linkedProject?.id === project.id
+                    }
                     className="flex cursor-pointer items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
                   >
                     <span className="min-w-0 truncate">{project.name}</span>
@@ -141,22 +192,32 @@ function StandaloneEmbedCard({
                     )}
                   </DropdownMenu.Item>
                 ))}
-                {embed.status !== "approved" && (
-                  <>
-                    <DropdownMenu.Separator className="my-1 h-px bg-border" />
-                    <DropdownMenu.Item
-                      onSelect={onDelete}
-                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive outline-none hover:bg-accent focus:bg-accent"
-                    >
-                      {deleting ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="size-4" />
-                      )}
-                      Delete
-                    </DropdownMenu.Item>
-                  </>
-                )}
+                <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                <DropdownMenu.Item
+                  onSelect={requestEdit}
+                  aria-disabled={!editingAllowed}
+                  title={
+                    editingAllowed
+                      ? "Edit embed"
+                      : "This embed can no longer be edited"
+                  }
+                  className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent ${editingAllowed ? "" : "text-muted-foreground opacity-50"}`}
+                >
+                  <Pencil className="size-4" />
+                  Edit
+                </DropdownMenu.Item>
+                <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                <DropdownMenu.Item
+                  onSelect={onDelete}
+                  className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive outline-none hover:bg-accent focus:bg-accent"
+                >
+                  {deleting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                  Delete
+                </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
@@ -215,6 +276,13 @@ function StandaloneEmbedCard({
               )}
               {copied ? "Copied" : "Copy embed code"}
             </Button>
+            {pendingProjectRequest && (
+              <p className="text-xs text-muted-foreground" role="status">
+                {pendingProjectRequest.project_id
+                  ? `Waiting for approval to link to ${projects.find((project) => project.id === pendingProjectRequest.project_id)?.name ?? "project"}.`
+                  : "Waiting for approval to unlink from the project."}
+              </p>
+            )}
           </>
         ) : (
           <div className="rounded-md border bg-muted/40 p-4">
@@ -231,6 +299,12 @@ function StandaloneEmbedCard({
           </div>
         )}
       </CardContent>
+      <StandaloneEmbedEditDialog
+        embed={embed}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSaved={onEmbedUpdated}
+      />
     </Card>
   )
 }
@@ -245,6 +319,9 @@ function AccountEmbedsPage() {
   >([])
   const [standaloneEmbeds, setStandaloneEmbeds] = React.useState<
     StandaloneEmbed[]
+  >([])
+  const [pendingProjectRequests, setPendingProjectRequests] = React.useState<
+    PendingProjectRequest[]
   >([])
   const [fetching, setFetching] = React.useState(true)
   const [linkingId, setLinkingId] = React.useState<string | null>(null)
@@ -262,7 +339,7 @@ function AccountEmbedsPage() {
     let cancelled = false
 
     async function loadEmbeds() {
-      const [profileResult, projectsResult, standaloneResult] =
+      const [profileResult, projectsResult, standaloneResult, requestsResult] =
         await Promise.all([
           supabase
             .from("profiles")
@@ -277,22 +354,29 @@ function AccountEmbedsPage() {
           supabase
             .from("standalone_embeds")
             .select(
-              "id, owner_id, slug, title, description, project_id, status, views_count, upvotes_count, created_at"
+              "id, owner_id, slug, title, description, project_id, status, views_count, upvotes_count, edit_count, created_at"
             )
             .eq("owner_id", user!.id)
             .order("created_at", { ascending: false }),
+          supabase
+            .from("standalone_embed_project_requests")
+            .select("embed_id, project_id")
+            .eq("owner_id", user!.id)
+            .eq("status", "pending"),
         ])
 
       if (cancelled) return
       if (
         profileResult.error ||
         projectsResult.error ||
-        standaloneResult.error
+        standaloneResult.error ||
+        requestsResult.error
       ) {
         setError(
           profileResult.error?.message ??
             projectsResult.error?.message ??
             standaloneResult.error?.message ??
+            requestsResult.error?.message ??
             "Could not load your embeds."
         )
         setFetching(false)
@@ -332,6 +416,7 @@ function AccountEmbedsPage() {
       setProjects(ownedProjects)
       setProjectEmbeds(loadedProjectEmbeds)
       setStandaloneEmbeds(standaloneResult.data ?? [])
+      setPendingProjectRequests(requestsResult.data ?? [])
       setFetching(false)
     }
 
@@ -353,14 +438,27 @@ function AccountEmbedsPage() {
     embed: StandaloneEmbed,
     projectId: string | null
   ) {
+    if (embed.project_id === projectId) return
+    if (
+      pendingProjectRequests.some((request) => request.embed_id === embed.id)
+    ) {
+      setError("This embed already has an application waiting for review.")
+      return
+    }
+
     setLinkingId(embed.id)
     setError(null)
     setNotice(null)
 
-    const { error: updateError } = await supabase.rpc(
-      "set_standalone_embed_project",
-      { p_embed_id: embed.id, p_project_id: projectId }
-    )
+    const { data, error: updateError } = await supabase
+      .from("standalone_embed_project_requests")
+      .insert({
+        embed_id: embed.id,
+        owner_id: user!.id,
+        project_id: projectId,
+      })
+      .select("embed_id, project_id")
+      .single()
 
     if (updateError) {
       setError(updateError.message)
@@ -368,13 +466,18 @@ function AccountEmbedsPage() {
       return
     }
 
+    setPendingProjectRequests((current) => [...current, data])
+    setNotice("Project application sent for review.")
+    setLinkingId(null)
+  }
+
+  function updateStandaloneEmbed(updatedEmbed: StandaloneEmbed) {
     setStandaloneEmbeds((current) =>
-      current.map((item) =>
-        item.id === embed.id ? { ...item, project_id: projectId } : item
+      current.map((embed) =>
+        embed.id === updatedEmbed.id ? updatedEmbed : embed
       )
     )
-    setNotice(projectId ? "Embed linked to project." : "Project link removed.")
-    setLinkingId(null)
+    setNotice("Embed updated.")
   }
 
   async function deleteEmbed(embed: StandaloneEmbed) {
@@ -486,7 +589,7 @@ function AccountEmbedsPage() {
         <div>
           <h2 className="font-semibold">Custom embeds</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Link published embeds to any of your projects from the actions menu.
+            Published embeds can be applied to your projects for moderation.
           </p>
         </div>
         {standaloneEmbeds.length === 0 ? (
@@ -506,6 +609,9 @@ function AccountEmbedsPage() {
               embed={embed}
               profileSlug={profileSlug}
               projects={projects}
+              pendingProjectRequest={pendingProjectRequests.find(
+                (request) => request.embed_id === embed.id
+              )}
               linkedProject={
                 embed.project_id
                   ? projectsById.get(embed.project_id)
@@ -517,6 +623,7 @@ function AccountEmbedsPage() {
                 void setEmbedProject(embed, projectId)
               }
               onDelete={() => void deleteEmbed(embed)}
+              onEmbedUpdated={updateStandaloneEmbed}
             />
           ))
         )}

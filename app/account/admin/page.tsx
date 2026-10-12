@@ -45,9 +45,14 @@ type ProjectEditRequest = {
   tags: string[] | null
   created_at: string
 }
-type StandaloneEmbedSubmission =
-  Database["public"]["Tables"]["standalone_embeds"]["Row"] & {
+type EmbedProjectRequest =
+  Database["public"]["Tables"]["standalone_embed_project_requests"]["Row"] & {
+    embed: Pick<
+      Database["public"]["Tables"]["standalone_embeds"]["Row"],
+      "slug" | "title" | "description"
+    >
     profileSlug: string
+    projectName: string | null
   }
 
 function AdminPage() {
@@ -60,10 +65,9 @@ function AdminPage() {
   const [pendingEdits, setPendingEdits] = React.useState<ProjectEditRequest[]>(
     []
   )
-  const [pendingStandaloneEmbeds, setPendingStandaloneEmbeds] = React.useState<
-    StandaloneEmbedSubmission[]
-  >([])
-  const [standaloneEmbedsLoading, setStandaloneEmbedsLoading] =
+  const [pendingEmbedProjectRequests, setPendingEmbedProjectRequests] =
+    React.useState<EmbedProjectRequest[]>([])
+  const [embedProjectRequestsLoading, setEmbedProjectRequestsLoading] =
     React.useState(true)
 
   React.useEffect(() => {
@@ -101,52 +105,90 @@ function AdminPage() {
 
     let cancelled = false
 
-    async function loadPendingStandaloneEmbeds() {
-      const { data: pendingEmbeds, error: embedsError } = await supabase
-        .from("standalone_embeds")
+    async function loadPendingEmbedProjectRequests() {
+      const { data: requests, error: requestsError } = await supabase
+        .from("standalone_embed_project_requests")
         .select(
-          "id, owner_id, slug, title, description, project_id, status, views_count, upvotes_count, created_at"
+          "id, embed_id, project_id, owner_id, status, created_at, reviewed_at"
         )
         .eq("status", "pending")
         .order("created_at", { ascending: true })
 
       if (cancelled) return
 
-      if (embedsError) {
-        setProjectsError(embedsError.message)
-        setStandaloneEmbedsLoading(false)
+      if (requestsError) {
+        setProjectsError(requestsError.message)
+        setEmbedProjectRequestsLoading(false)
         return
       }
 
-      const ownerIds = [
-        ...new Set((pendingEmbeds ?? []).map((embed) => embed.owner_id)),
+      if (!requests?.length) {
+        setPendingEmbedProjectRequests([])
+        setEmbedProjectRequestsLoading(false)
+        return
+      }
+
+      const embedIds = [...new Set(requests.map((request) => request.embed_id))]
+      const projectIds = [
+        ...new Set(
+          requests.flatMap((request) =>
+            request.project_id ? [request.project_id] : []
+          )
+        ),
       ]
-      const { data: profiles, error: profilesError } = ownerIds.length
-        ? await supabase.rpc("get_public_profiles", {
-            p_profile_ids: ownerIds,
-          })
-        : { data: [], error: null }
+      const ownerIds = [...new Set(requests.map((request) => request.owner_id))]
+      const [embedsResult, projectsResult, profilesResult] = await Promise.all([
+        supabase
+          .from("standalone_embeds")
+          .select("id, slug, title, description")
+          .in("id", embedIds),
+        projectIds.length
+          ? supabase.from("projects").select("id, name").in("id", projectIds)
+          : Promise.resolve({ data: [], error: null }),
+        supabase.rpc("get_public_profiles", { p_profile_ids: ownerIds }),
+      ])
 
       if (cancelled) return
-      if (profilesError) {
-        setProjectsError(profilesError.message)
-        setStandaloneEmbedsLoading(false)
+      if (embedsResult.error || projectsResult.error || profilesResult.error) {
+        setProjectsError(
+          embedsResult.error?.message ??
+            projectsResult.error?.message ??
+            profilesResult.error?.message ??
+            "Could not load embed project requests."
+        )
+        setEmbedProjectRequestsLoading(false)
         return
       }
 
+      const embedsById = new Map(
+        (embedsResult.data ?? []).map((embed) => [embed.id, embed])
+      )
+      const projectsById = new Map(
+        (projectsResult.data ?? []).map((project) => [project.id, project.name])
+      )
       const profileSlugs = new Map(
-        (profiles ?? []).map((profile) => [profile.id, profile.slug])
+        (profilesResult.data ?? []).map((profile) => [profile.id, profile.slug])
       )
-      setPendingStandaloneEmbeds(
-        (pendingEmbeds ?? []).map((embed) => ({
-          ...embed,
-          profileSlug: profileSlugs.get(embed.owner_id) ?? "",
-        }))
+      setPendingEmbedProjectRequests(
+        requests.flatMap((request) => {
+          const embed = embedsById.get(request.embed_id)
+          if (!embed) return []
+          return [
+            {
+              ...request,
+              embed,
+              profileSlug: profileSlugs.get(request.owner_id) ?? "",
+              projectName: request.project_id
+                ? (projectsById.get(request.project_id) ?? null)
+                : null,
+            },
+          ]
+        })
       )
-      setStandaloneEmbedsLoading(false)
+      setEmbedProjectRequestsLoading(false)
     }
 
-    void loadPendingStandaloneEmbeds()
+    void loadPendingEmbedProjectRequests()
     return () => {
       cancelled = true
     }
@@ -271,41 +313,16 @@ function AdminPage() {
     )
   }
 
-  async function approveStandaloneEmbed(embed: StandaloneEmbedSubmission) {
-    if (!embed.profileSlug) {
-      setProjectsError(
-        "This embed has no profile slug and cannot be published."
-      )
-      return
-    }
-
-    setActioningId(embed.id)
+  async function reviewEmbedProjectRequest(
+    requestId: string,
+    approve: boolean
+  ) {
+    setActioningId(requestId)
     setProjectsError(null)
-    const { error } = await supabase
-      .from("standalone_embeds")
-      .update({ status: "approved" })
-      .eq("id", embed.id)
-      .eq("status", "pending")
-
-    if (error) {
-      setProjectsError(error.message)
-    } else {
-      setPendingStandaloneEmbeds((current) =>
-        current.filter((item) => item.id !== embed.id)
-      )
-    }
-
-    setActioningId(null)
-  }
-
-  async function rejectStandaloneEmbed(embedId: string) {
-    setActioningId(embedId)
-    setProjectsError(null)
-    const { error } = await supabase
-      .from("standalone_embeds")
-      .update({ status: "rejected" })
-      .eq("id", embedId)
-      .eq("status", "pending")
+    const { error } = await supabase.rpc(
+      "review_standalone_embed_project_request",
+      { p_request_id: requestId, p_approve: approve }
+    )
     setActioningId(null)
 
     if (error) {
@@ -313,8 +330,8 @@ function AdminPage() {
       return
     }
 
-    setPendingStandaloneEmbeds((current) =>
-      current.filter((embed) => embed.id !== embedId)
+    setPendingEmbedProjectRequests((current) =>
+      current.filter((request) => request.id !== requestId)
     )
   }
 
@@ -521,56 +538,68 @@ function AdminPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">
-                Embeds to approve ({pendingStandaloneEmbeds.length})
+                Embed project applications ({pendingEmbedProjectRequests.length}
+                )
               </CardTitle>
               <CardDescription>
-                Approving an embed generates and publishes its image files.
+                Review requests to attach published custom embeds to projects.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {standaloneEmbedsLoading ? (
+              {embedProjectRequestsLoading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" />
-                  Loading embeds
+                  Loading applications
                 </div>
-              ) : pendingStandaloneEmbeds.length === 0 ? (
+              ) : pendingEmbedProjectRequests.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No standalone embeds waiting for review.
+                  No embed project applications waiting for review.
                 </p>
               ) : (
-                pendingStandaloneEmbeds.map((embed) => (
+                pendingEmbedProjectRequests.map((request) => (
                   <div
-                    key={embed.id}
+                    key={request.id}
                     className="flex flex-col gap-4 rounded-md border p-4 sm:flex-row sm:items-start sm:justify-between"
                   >
                     <div className="min-w-0">
-                      <p className="font-medium">{embed.title}</p>
+                      <p className="font-medium">{request.embed.title}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        /user/{embed.profileSlug}/embeds/{embed.slug}.png
+                        /user/{request.profileSlug}/embeds/{request.embed.slug}
+                        .png
                       </p>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        {embed.description || "No description provided."}
+                        {request.embed.description ||
+                          "No description provided."}
+                      </p>
+                      <p className="mt-2 text-sm">
+                        {request.project_id
+                          ? `Apply to ${request.projectName ?? "unknown project"}`
+                          : "Remove the current project assignment"}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <Button
                         size="sm"
-                        onClick={() => void approveStandaloneEmbed(embed)}
-                        disabled={actioningId === embed.id}
+                        onClick={() =>
+                          void reviewEmbedProjectRequest(request.id, true)
+                        }
+                        disabled={actioningId === request.id}
                       >
-                        {actioningId === embed.id ? (
+                        {actioningId === request.id ? (
                           <Loader2 className="size-4 animate-spin" />
                         ) : (
                           <Check className="size-4" />
                         )}
-                        Approve
+                        Approve application
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => void rejectStandaloneEmbed(embed.id)}
-                        disabled={actioningId === embed.id}
+                        onClick={() =>
+                          void reviewEmbedProjectRequest(request.id, false)
+                        }
+                        disabled={actioningId === request.id}
                       >
                         <X className="size-4" />
                         Reject

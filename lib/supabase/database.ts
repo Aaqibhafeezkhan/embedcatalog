@@ -34,6 +34,20 @@ export type Database = {
         }
         Relationships: []
       }
+      user_follows: {
+        Row: {
+          follower_id: string
+          followed_id: string
+          created_at: string
+        }
+        Insert: {
+          follower_id: string
+          followed_id: string
+          created_at?: string
+        }
+        Update: never
+        Relationships: []
+      }
       standalone_embeds: {
         Row: {
           id: string
@@ -45,6 +59,7 @@ export type Database = {
           status: "draft" | "pending" | "approved" | "rejected"
           views_count: number
           upvotes_count: number
+          edit_count: number
           created_at: string
         }
         Insert: {
@@ -59,8 +74,33 @@ export type Database = {
         }
         Update: {
           project_id?: string | null
+          slug?: string
+          title?: string
+          description?: string
           status?: "draft" | "pending" | "approved" | "rejected"
         }
+        Relationships: []
+      }
+      standalone_embed_project_requests: {
+        Row: {
+          id: string
+          embed_id: string
+          project_id: string | null
+          owner_id: string
+          status: "pending" | "approved" | "rejected"
+          created_at: string
+          reviewed_at: string | null
+        }
+        Insert: {
+          id?: string
+          embed_id: string
+          project_id?: string | null
+          owner_id: string
+          status?: "pending" | "approved" | "rejected"
+          created_at?: string
+          reviewed_at?: string | null
+        }
+        Update: never
         Relationships: []
       }
       standalone_embed_bookmarks: {
@@ -271,6 +311,10 @@ export type Database = {
       }
       set_standalone_embed_project: {
         Args: { p_embed_id: string; p_project_id: string | null }
+        Returns: undefined
+      }
+      review_standalone_embed_project_request: {
+        Args: { p_request_id: string; p_approve: boolean }
         Returns: undefined
       }
       get_public_profile_bio: {

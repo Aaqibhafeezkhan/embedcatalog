@@ -7,6 +7,7 @@ export type CreateProjectEmbed = {
   title: string
   description: string
   theme: "light" | "dark"
+  slug?: string
 }
 
 export type CreateProjectDraft = {

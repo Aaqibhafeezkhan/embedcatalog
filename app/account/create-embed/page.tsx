@@ -17,8 +17,10 @@ import {
 import { ProjectEmbedEditor } from "components/project-embed-editor"
 import type { CreateProjectEmbed } from "app/account/create-project/draft-context"
 import { supabase } from "lib/supabase/client"
+import { isValidEmbedSlug, slugifyEmbed } from "lib/standalone-embed-slug"
 
-const maximumEmbedsPerSubmission = 20
+const freeEmbedLimit = 3
+const premiumEmbedLimit = 15
 
 const defaultEmbed = (id: number): CreateProjectEmbed => ({
   id,
@@ -31,13 +33,15 @@ function CreateEmbedPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
   const [profileSlug, setProfileSlug] = React.useState<string | null>(null)
-  const [embeds, setEmbeds] = React.useState<CreateProjectEmbed[]>(() => [
-    defaultEmbed(Date.now()),
-  ])
+  const [embeds, setEmbeds] = React.useState<CreateProjectEmbed[]>([])
+  const [existingEmbedCount, setExistingEmbedCount] = React.useState(0)
+  const [isPremium, setIsPremium] = React.useState(false)
   const [fetchingProfile, setFetchingProfile] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)
+  const embedLimit = isPremium ? premiumEmbedLimit : freeEmbedLimit
+  const remainingEmbeds = Math.max(0, embedLimit - existingEmbedCount)
 
   React.useEffect(() => {
     if (!loading && !user) router.replace("/login")
@@ -49,17 +53,45 @@ function CreateEmbedPage() {
     let cancelled = false
 
     async function loadProfile() {
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("slug")
-        .eq("id", user!.id)
-        .maybeSingle()
+      const [profileResult, projectsResult, embedsResult] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("slug")
+          .eq("id", user!.id)
+          .maybeSingle(),
+        supabase.from("projects").select("is_premium").eq("owner_id", user!.id),
+        supabase
+          .from("standalone_embeds")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_id", user!.id),
+      ])
 
       if (cancelled) return
-      if (profileError || !profile) {
-        setError(profileError?.message ?? "Could not find your profile.")
+      if (
+        profileResult.error ||
+        !profileResult.data ||
+        projectsResult.error ||
+        embedsResult.error
+      ) {
+        setError(
+          profileResult.error?.message ??
+            projectsResult.error?.message ??
+            embedsResult.error?.message ??
+            "Could not load your account."
+        )
       } else {
-        setProfileSlug(profile.slug)
+        const premium = projectsResult.data.some(
+          (project) => project.is_premium
+        )
+        const count = embedsResult.count ?? 0
+        setProfileSlug(profileResult.data.slug)
+        setIsPremium(premium)
+        setExistingEmbedCount(count)
+        setEmbeds(
+          count < (premium ? premiumEmbedLimit : freeEmbedLimit)
+            ? [defaultEmbed(Date.now())]
+            : []
+        )
       }
       setFetchingProfile(false)
     }
@@ -84,25 +116,63 @@ function CreateEmbedPage() {
       setError("Add at least one embed.")
       return
     }
-    if (embeds.length > maximumEmbedsPerSubmission) {
-      setError(`Submit up to ${maximumEmbedsPerSubmission} embeds at a time.`)
-      return
-    }
     if (embeds.some((embed) => !embed.title.trim())) {
       setError("Enter a title for each embed.")
       return
     }
+    const slugs = embeds.map((embed) =>
+      slugifyEmbed(embed.slug?.trim() || embed.title)
+    )
+    if (slugs.some((slug) => !isValidEmbedSlug(slug))) {
+      setError("Use lowercase letters, numbers, and hyphens for embed URLs.")
+      return
+    }
+    if (new Set(slugs).size !== slugs.length) {
+      setError("Each embed must have a different image URL.")
+      return
+    }
 
     setSaving(true)
+    const [projectsResult, embedsResult] = await Promise.all([
+      supabase.from("projects").select("is_premium").eq("owner_id", user.id),
+      supabase
+        .from("standalone_embeds")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", user.id),
+    ])
+
+    if (projectsResult.error || embedsResult.error) {
+      setError(
+        projectsResult.error?.message ??
+          embedsResult.error?.message ??
+          "Could not verify your embed limit."
+      )
+      setSaving(false)
+      return
+    }
+
+    const premium = projectsResult.data.some((project) => project.is_premium)
+    const limit = premium ? premiumEmbedLimit : freeEmbedLimit
+    const count = embedsResult.count ?? 0
+    setIsPremium(premium)
+    setExistingEmbedCount(count)
+    if (count + embeds.length > limit) {
+      setError(
+        `You can create up to ${limit} custom embeds. You already have ${count}.`
+      )
+      setSaving(false)
+      return
+    }
+
     setError(null)
     setNotice(null)
 
     const rows = embeds.map((embed) => ({
       owner_id: user.id,
-      slug: crypto.randomUUID().slice(0, 8),
+      slug: slugifyEmbed(embed.slug?.trim() || embed.title),
       title: embed.title.trim(),
       description: embed.description.trim(),
-      status: "draft" as const,
+      status: "approved" as const,
     }))
 
     const { data, error: insertError } = await supabase
@@ -114,13 +184,18 @@ function CreateEmbedPage() {
 
     setSaving(false)
     if (insertError || !data) {
-      setError(insertError?.message ?? "Could not submit the embeds.")
+      setError(
+        insertError?.code === "23505"
+          ? "An embed with this image URL already exists in your account."
+          : (insertError?.message ?? "Could not create the embeds.")
+      )
       return
     }
 
+    setExistingEmbedCount(count + data.length)
     setEmbeds([])
     setNotice(
-      `${data.length} embed${data.length === 1 ? "" : "s"} saved as draft. Send ${data.length === 1 ? "it" : "them"} for review on the submit page.`
+      `${data.length} embed${data.length === 1 ? "" : "s"} created and published.`
     )
   }
 
@@ -135,8 +210,10 @@ function CreateEmbedPage() {
         </Button>
         <h1 className="mt-4 text-2xl font-semibold">Create embed</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Design up to {maximumEmbedsPerSubmission} custom image embeds, then
-          send them for review on the submit page.
+          Create up to {embedLimit} custom embeds ({existingEmbedCount} used).
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Premium increases the limit from 3 to 15 custom embeds.
         </p>
       </div>
 
@@ -144,7 +221,8 @@ function CreateEmbedPage() {
         <ProjectEmbedEditor
           embeds={embeds}
           onEmbedsChange={setEmbeds}
-          maxEmbeds={maximumEmbedsPerSubmission}
+          maxEmbeds={remainingEmbeds}
+          showSlug
         />
 
         <aside className="lg:sticky lg:top-20">
@@ -152,7 +230,7 @@ function CreateEmbedPage() {
             <CardHeader>
               <CardTitle className="text-lg">Save embeds</CardTitle>
               <CardDescription>
-                Saved embeds are drafts until you submit them for review.
+                Your embeds are published immediately.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -172,7 +250,7 @@ function CreateEmbedPage() {
                 disabled={saving || embeds.length === 0 || !profileSlug}
               >
                 {saving && <Loader2 className="size-4 animate-spin" />}
-                {saving ? "Saving" : "Save as draft"}
+                {saving ? "Creating" : "Create embeds"}
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/submit">Go to submit page</Link>

@@ -3,8 +3,19 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Images, Loader2, UserRound } from "lucide-react"
+import { useRouter } from "next/navigation"
+import {
+  ArrowUp,
+  ArrowLeft,
+  Eye,
+  Images,
+  Loader2,
+  UserCheck,
+  UserPlus,
+  UserRound,
+} from "lucide-react"
 
+import { useAuth } from "components/auth-provider"
 import { ProjectInfoMarkdown } from "components/project-info-markdown"
 import { Button } from "components/ui/button"
 import {
@@ -22,7 +33,13 @@ import { supabase } from "lib/supabase/client"
 
 type PublicEmbed = Pick<
   Database["public"]["Tables"]["standalone_embeds"]["Row"],
-  "id" | "slug" | "title" | "description" | "created_at"
+  | "id"
+  | "slug"
+  | "title"
+  | "description"
+  | "created_at"
+  | "views_count"
+  | "upvotes_count"
 >
 
 type PublicProfile =
@@ -39,6 +56,146 @@ function getSafeSocialUrl(value: string | undefined) {
   } catch {
     return null
   }
+}
+
+function UserFollow({ profileId }: { profileId: string }) {
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
+  const [followerCount, setFollowerCount] = React.useState<number | null>(null)
+  const [isFollowing, setIsFollowing] = React.useState(false)
+  const [resolvedUserId, setResolvedUserId] = React.useState<string | null>(
+    null
+  )
+  const [loadedKey, setLoadedKey] = React.useState<string | null>(null)
+  const [saving, setSaving] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
+  const requestInProgress = React.useRef(false)
+  const requestKey = `${profileId}:${user?.id ?? "anonymous"}`
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function loadFollowState() {
+      const followersRequest = supabase
+        .from("user_follows")
+        .select("follower_id", { count: "exact", head: true })
+        .eq("followed_id", profileId)
+      const followingRequest = user
+        ? supabase
+            .from("user_follows")
+            .select("follower_id")
+            .eq("follower_id", user.id)
+            .eq("followed_id", profileId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null })
+      const [followersResult, followingResult] = await Promise.all([
+        followersRequest,
+        followingRequest,
+      ])
+
+      if (cancelled) return
+      if (followersResult.error || followingResult.error) {
+        setLoadError("Could not load follow status.")
+        setLoadedKey(requestKey)
+      } else {
+        setFollowerCount(followersResult.count ?? 0)
+        setIsFollowing(Boolean(followingResult.data))
+        setResolvedUserId(user?.id ?? "anonymous")
+        setLoadError(null)
+        setError(null)
+        setLoadedKey(requestKey)
+      }
+    }
+
+    void loadFollowState()
+    return () => {
+      cancelled = true
+    }
+  }, [profileId, requestKey, user])
+
+  async function toggleFollow() {
+    if (!user) {
+      router.push("/login")
+      return
+    }
+    if (
+      requestInProgress.current ||
+      resolvedUserId !== user.id ||
+      loadedKey !== requestKey
+    ) {
+      return
+    }
+
+    requestInProgress.current = true
+    setSaving(true)
+    setError(null)
+    const nextIsFollowing = !isCurrentFollowing
+    const result = nextIsFollowing
+      ? await supabase
+          .from("user_follows")
+          .insert({ follower_id: user.id, followed_id: profileId })
+      : await supabase
+          .from("user_follows")
+          .delete()
+          .eq("follower_id", user.id)
+          .eq("followed_id", profileId)
+
+    if (result.error) {
+      setError("Could not update follow status. Please try again.")
+    } else {
+      setIsFollowing(nextIsFollowing)
+      setFollowerCount((count) =>
+        Math.max(0, (count ?? 0) + (nextIsFollowing ? 1 : -1))
+      )
+    }
+
+    setSaving(false)
+    requestInProgress.current = false
+  }
+
+  const checkingFollow =
+    authLoading ||
+    loadedKey !== requestKey ||
+    Boolean(user && resolvedUserId !== user.id) ||
+    Boolean(loadError && loadedKey === requestKey)
+  const isCurrentFollowing = loadedKey === requestKey && isFollowing
+  const isOwnProfile = user?.id === profileId
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {!isOwnProfile && (
+        <Button
+          type="button"
+          size="sm"
+          variant={isCurrentFollowing ? "secondary" : "outline"}
+          onClick={() => void toggleFollow()}
+          disabled={checkingFollow || saving}
+          aria-pressed={isCurrentFollowing}
+        >
+          {checkingFollow || saving ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : isCurrentFollowing ? (
+            <UserCheck className="size-4" />
+          ) : (
+            <UserPlus className="size-4" />
+          )}
+          {isCurrentFollowing ? "Following" : "Follow"}
+        </Button>
+      )}
+      {loadedKey === requestKey && followerCount !== null && (
+        <span className="text-sm text-muted-foreground">
+          {followerCount.toLocaleString("en-US")}{" "}
+          {followerCount === 1 ? "follower" : "followers"}
+        </span>
+      )}
+      {(error || loadError) && (
+        <p className="text-xs text-destructive" role="alert">
+          {error ?? loadError}
+        </p>
+      )}
+    </div>
+  )
 }
 
 function PublicEmbedCard({
@@ -103,6 +260,16 @@ function PublicEmbedCard({
           height={84}
           unoptimized
         />
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <Eye className="size-3.5" aria-hidden="true" />
+            {embed.views_count.toLocaleString("en-US")}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <ArrowUp className="size-3.5" aria-hidden="true" />
+            {embed.upvotes_count.toLocaleString("en-US")}
+          </span>
+        </div>
       </CardContent>
     </Card>
   )
@@ -141,7 +308,9 @@ function PublicUserEmbeds({ login }: { login: string }) {
 
       const { data, error: embedsError } = await supabase
         .from("standalone_embeds")
-        .select("id, slug, title, description, created_at")
+        .select(
+          "id, slug, title, description, created_at, views_count, upvotes_count"
+        )
         .eq("owner_id", profile.id)
         .eq("status", "approved")
         .is("project_id", null)
@@ -206,29 +375,32 @@ function PublicUserEmbeds({ login }: { login: string }) {
                 </p>
               </div>
             </div>
-            <nav
-              aria-label="Social networks"
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
-            >
-              {[
-                ["GitHub", profile?.socials?.github],
-                ["Twitter", profile?.socials?.twitter],
-                ["YouTube", profile?.socials?.youtube],
-              ].map(([label, value]) => {
-                const href = getSafeSocialUrl(value)
-                return href ? (
-                  <a
-                    key={label}
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                  >
-                    {label}
-                  </a>
-                ) : null
-              })}
-            </nav>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+              <nav
+                aria-label="Social networks"
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
+              >
+                {[
+                  ["GitHub", profile?.socials?.github],
+                  ["Twitter", profile?.socials?.twitter],
+                  ["YouTube", profile?.socials?.youtube],
+                ].map(([label, value]) => {
+                  const href = getSafeSocialUrl(value)
+                  return href ? (
+                    <a
+                      key={label}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                    >
+                      {label}
+                    </a>
+                  ) : null
+                })}
+              </nav>
+              {profile && <UserFollow profileId={profile.id} />}
+            </div>
           </header>
 
           <ProjectInfoMarkdown content={bio} className="mt-5" />

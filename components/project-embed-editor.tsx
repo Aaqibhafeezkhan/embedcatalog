@@ -23,6 +23,7 @@ import {
 import { Textarea } from "components/ui/textarea"
 import type { CreateProjectEmbed } from "app/account/create-project/draft-context"
 import { cn } from "lib/utils"
+import { slugifyEmbed } from "lib/standalone-embed-slug"
 
 type EmbedProject = {
   id: string
@@ -35,6 +36,7 @@ type ProjectEmbedEditorProps = {
   onEmbedsChange: (embeds: CreateProjectEmbed[]) => void
   fallbackTitle?: string
   maxEmbeds?: number
+  showSlug?: boolean
   projects?: EmbedProject[]
   selectedProjectIds?: Record<number, string>
   onProjectChange?: (embedId: number, projectId: string | null) => void
@@ -117,6 +119,7 @@ function ProjectEmbedEditor({
   onEmbedsChange,
   fallbackTitle,
   maxEmbeds,
+  showSlug = false,
   projects,
   selectedProjectIds,
   onProjectChange,
@@ -135,7 +138,7 @@ function ProjectEmbedEditor({
         <div>
           <h2 className="font-semibold">Embeds</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create as many variations as you need.
+            Customize each embed to fit its purpose.
           </p>
         </div>
         <Button
@@ -191,6 +194,25 @@ function ProjectEmbedEditor({
                   maxLength={80}
                 />
               </div>
+              {showSlug && (
+                <div className="grid gap-2">
+                  <Label htmlFor={`embed-slug-${embed.id}`}>Image URL</Label>
+                  <Input
+                    id={`embed-slug-${embed.id}`}
+                    value={embed.slug ?? ""}
+                    onChange={(event) =>
+                      updateEmbed(embed.id, { slug: event.target.value })
+                    }
+                    placeholder={slugifyEmbed(embed.title)}
+                    maxLength={80}
+                    pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave blank to use {slugifyEmbed(embed.title)}. Use
+                    lowercase letters, numbers, and hyphens.
+                  </p>
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor={`embed-description-${embed.id}`}>
                   Description

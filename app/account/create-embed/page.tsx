@@ -254,9 +254,6 @@ function CreateEmbedPage() {
                 {saving ? "Creating" : "Create embeds"}
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/submit">Go to submit page</Link>
-              </Button>
-              <Button variant="outline" asChild>
                 <Link href="/account/embeds">My embeds</Link>
               </Button>
             </CardContent>

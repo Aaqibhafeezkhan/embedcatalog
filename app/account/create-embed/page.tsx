@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { ChevronLeft, Loader2 } from "lucide-react"
 
 import { useAuth } from "components/auth-provider"
+import { useNotification } from "components/notification-provider"
 import { Button } from "components/ui/button"
 import {
   Card,
@@ -17,21 +18,16 @@ import {
 import { ProjectEmbedEditor } from "components/project-embed-editor"
 import type { CreateProjectEmbed } from "app/account/create-project/draft-context"
 import { supabase } from "lib/supabase/client"
+import { bindGithubRepo } from "lib/embed-variables"
 import { isValidEmbedSlug, slugifyEmbed } from "lib/standalone-embed-slug"
 
 const freeEmbedLimit = 3
 const premiumEmbedLimit = 15
 
-const defaultEmbed = (id: number): CreateProjectEmbed => ({
-  id,
-  title: "Built with EmbedCatalog",
-  description: "A project worth checking out.",
-  theme: "light",
-})
-
 function CreateEmbedPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
+  const { notify } = useNotification()
   const [profileSlug, setProfileSlug] = React.useState<string | null>(null)
   const [embeds, setEmbeds] = React.useState<CreateProjectEmbed[]>([])
   const [existingEmbedCount, setExistingEmbedCount] = React.useState(0)
@@ -87,11 +83,6 @@ function CreateEmbedPage() {
         setProfileSlug(profileResult.data.slug)
         setIsPremium(premium)
         setExistingEmbedCount(count)
-        setEmbeds(
-          count < (premium ? premiumEmbedLimit : freeEmbedLimit)
-            ? [defaultEmbed(Date.now())]
-            : []
-        )
       }
       setFetchingProfile(false)
     }
@@ -116,19 +107,19 @@ function CreateEmbedPage() {
       setError("Add at least one embed.")
       return
     }
-    if (embeds.some((embed) => !embed.title.trim())) {
-      setError("Enter a title for each embed.")
+    if (embeds.some((embed) => !embed.name?.trim())) {
+      setError("Enter a name for each embed.")
       return
     }
     const slugs = embeds.map((embed) =>
-      slugifyEmbed(embed.slug?.trim() || embed.title)
+      slugifyEmbed(embed.slug?.trim() || embed.name || "")
     )
     if (slugs.some((slug) => !isValidEmbedSlug(slug))) {
       setError("Use lowercase letters, numbers, and hyphens for embed URLs.")
       return
     }
     if (new Set(slugs).size !== slugs.length) {
-      setError("Each embed must have a different image URL.")
+      setError("Each embed must have a different embed URL.")
       return
     }
 
@@ -169,9 +160,13 @@ function CreateEmbedPage() {
 
     const rows = embeds.map((embed) => ({
       owner_id: user.id,
-      slug: slugifyEmbed(embed.slug?.trim() || embed.title),
-      title: embed.title.trim(),
-      description: embed.description.trim(),
+      slug: slugifyEmbed(embed.slug?.trim() || embed.name || ""),
+      title: embed.name!.trim(),
+      image_title: bindGithubRepo(embed.title.trim(), embed.githubRepo),
+      image_description: bindGithubRepo(
+        embed.description.trim(),
+        embed.githubRepo
+      ),
       status: "approved" as const,
     }))
 
@@ -183,10 +178,14 @@ function CreateEmbedPage() {
       )
 
     setSaving(false)
+    if (insertError?.code === "P0001") {
+      notify(insertError.message)
+      return
+    }
     if (insertError || !data) {
       setError(
         insertError?.code === "23505"
-          ? "An embed with this image URL already exists in your account."
+          ? "An embed with this embed URL already exists in your account."
           : (insertError?.message ?? "Could not create the embeds.")
       )
       return
@@ -221,8 +220,10 @@ function CreateEmbedPage() {
         <ProjectEmbedEditor
           embeds={embeds}
           onEmbedsChange={setEmbeds}
+          defaultEmbedName={`embed-${existingEmbedCount + embeds.length + 1}`}
           maxEmbeds={remainingEmbeds}
           showSlug
+          addInDialog
         />
 
         <aside className="lg:sticky lg:top-20">

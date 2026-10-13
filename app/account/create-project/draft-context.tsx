@@ -8,6 +8,8 @@ export type CreateProjectEmbed = {
   description: string
   theme: "light" | "dark"
   slug?: string
+  name?: string
+  githubRepo?: string
 }
 
 export type CreateProjectDraft = {

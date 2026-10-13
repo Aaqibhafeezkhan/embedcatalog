@@ -180,7 +180,10 @@ export function CustomEmbedCard({
         )
       : getPublicCustomEmbedSrc(siteConfig.url, slug, shortId ?? "", theme)
   const html = buildEmbedImageHtml({
-    projectUrl,
+    projectUrl:
+      standaloneProfileSlug && standaloneSlug
+        ? `${siteConfig.url}/user/${encodeURIComponent(standaloneProfileSlug)}/embed/${encodeURIComponent(standaloneSlug)}`
+        : projectUrl,
     title,
     embedSrc,
     width,

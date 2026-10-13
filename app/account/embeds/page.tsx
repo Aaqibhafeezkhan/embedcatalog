@@ -91,7 +91,10 @@ function StandaloneEmbedCard({
         theme
       )
     : ""
-  const code = `<img src="${imageSrc}" alt="${embed.title}" width="${imageWidth}" height="${imageHeight}" />`
+  const pageUrl = profileSlug
+    ? `${siteConfig.url}/user/${encodeURIComponent(profileSlug)}/embed/${encodeURIComponent(embed.slug)}`
+    : ""
+  const code = `<a href="${pageUrl}" target="_blank" rel="noreferrer noopener"><img src="${imageSrc}" alt="${embed.title}" width="${imageWidth}" height="${imageHeight}" /></a>`
 
   async function copyCode() {
     try {
@@ -354,7 +357,7 @@ function AccountEmbedsPage() {
           supabase
             .from("standalone_embeds")
             .select(
-              "id, owner_id, slug, title, description, project_id, status, views_count, upvotes_count, edit_count, created_at"
+              "id, owner_id, slug, title, description, image_title, image_description, project_id, status, views_count, upvotes_count, edit_count, created_at"
             )
             .eq("owner_id", user!.id)
             .order("created_at", { ascending: false }),

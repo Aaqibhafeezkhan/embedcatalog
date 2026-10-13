@@ -29,7 +29,8 @@ function StandaloneEmbedEditDialog({
 }: StandaloneEmbedEditDialogProps) {
   const dialogRef = React.useRef<HTMLDialogElement>(null)
   const [title, setTitle] = React.useState(embed.title)
-  const [description, setDescription] = React.useState(embed.description)
+  const [imageTitle, setImageTitle] = React.useState(embed.image_title)
+  const [description, setDescription] = React.useState(embed.image_description)
   const [slug, setSlug] = React.useState(embed.slug)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -54,11 +55,11 @@ function StandaloneEmbedEditDialog({
     const nextSlug = slugifyEmbed(slug.trim() || nextTitle)
 
     if (!nextTitle) {
-      setError("Enter a title for your embed.")
+      setError("Enter a name for your embed.")
       return
     }
     if (!isValidEmbedSlug(nextSlug)) {
-      setError("Use lowercase letters, numbers, and hyphens for the image URL.")
+      setError("Use lowercase letters, numbers, and hyphens for the embed URL.")
       return
     }
 
@@ -68,13 +69,14 @@ function StandaloneEmbedEditDialog({
       .from("standalone_embeds")
       .update({
         title: nextTitle,
-        description: description.trim(),
+        image_title: imageTitle.trim(),
+        image_description: description.trim(),
         slug: nextSlug,
       })
       .eq("id", embed.id)
       .eq("owner_id", embed.owner_id)
       .select(
-        "id, owner_id, slug, title, description, project_id, status, views_count, upvotes_count, edit_count, created_at"
+        "id, owner_id, slug, title, description, image_title, image_description, project_id, status, views_count, upvotes_count, edit_count, created_at"
       )
       .single()
 
@@ -82,7 +84,7 @@ function StandaloneEmbedEditDialog({
     if (updateError || !data) {
       setError(
         updateError?.code === "23505"
-          ? "An embed with this image URL already exists in your account."
+          ? "An embed with this embed URL already exists in your account."
           : (updateError?.message ?? "Could not save this embed.")
       )
       return
@@ -90,7 +92,8 @@ function StandaloneEmbedEditDialog({
 
     onSaved(data)
     setTitle(data.title)
-    setDescription(data.description)
+    setImageTitle(data.image_title)
+    setDescription(data.image_description)
     setSlug(data.slug)
     closeEditor()
   }
@@ -118,7 +121,7 @@ function StandaloneEmbedEditDialog({
         </p>
         <div className="mt-5 grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor={`edit-embed-name-${embed.id}`}>Title</Label>
+            <Label htmlFor={`edit-embed-name-${embed.id}`}>Name</Label>
             <Input
               id={`edit-embed-name-${embed.id}`}
               value={title}
@@ -127,7 +130,7 @@ function StandaloneEmbedEditDialog({
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor={`edit-embed-url-${embed.id}`}>Image URL</Label>
+            <Label htmlFor={`edit-embed-url-${embed.id}`}>Embed URL</Label>
             <Input
               id={`edit-embed-url-${embed.id}`}
               value={slug}
@@ -138,6 +141,15 @@ function StandaloneEmbedEditDialog({
             <p className="text-xs text-muted-foreground">
               Use lowercase letters, numbers, and hyphens.
             </p>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`edit-embed-image-title-${embed.id}`}>Title</Label>
+            <Input
+              id={`edit-embed-image-title-${embed.id}`}
+              value={imageTitle}
+              onChange={(event) => setImageTitle(event.target.value)}
+              maxLength={80}
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`edit-embed-description-${embed.id}`}>

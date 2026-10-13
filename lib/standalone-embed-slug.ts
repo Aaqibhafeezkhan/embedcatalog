@@ -1,6 +1,7 @@
 function slugifyEmbed(value: string) {
   return (
     value
+      .replace(/\{+[^}]*\}+/g, " ")
       .normalize("NFKD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()

@@ -55,6 +55,8 @@ export type Database = {
           slug: string
           title: string
           description: string
+          image_title: string
+          image_description: string
           project_id: string | null
           status: "draft" | "pending" | "approved" | "rejected"
           views_count: number
@@ -68,6 +70,8 @@ export type Database = {
           slug: string
           title: string
           description?: string
+          image_title?: string
+          image_description?: string
           project_id?: string | null
           status?: "draft" | "pending" | "approved" | "rejected"
           created_at?: string
@@ -77,6 +81,8 @@ export type Database = {
           slug?: string
           title?: string
           description?: string
+          image_title?: string
+          image_description?: string
           status?: "draft" | "pending" | "approved" | "rejected"
         }
         Relationships: []

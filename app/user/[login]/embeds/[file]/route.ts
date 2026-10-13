@@ -1,5 +1,6 @@
 import type { EmbedTheme } from "lib/embed"
 import { renderCustomEmbedImage } from "lib/embed-image"
+import { resolveEmbedText } from "lib/embed-variables"
 import { createPublicServerClient } from "lib/supabase/server"
 
 export const dynamic = "force-dynamic"
@@ -24,7 +25,7 @@ export async function GET(
 
   const { data: embed } = await client
     .from("standalone_embeds")
-    .select("title, description")
+    .select("title, image_title, image_description")
     .eq("owner_id", profile.id)
     .eq("slug", embedSlug)
     .eq("status", "approved")
@@ -33,11 +34,11 @@ export async function GET(
   if (!embed) return new Response("Not found", { status: 404 })
 
   const theme: EmbedTheme = darkTheme ? "dark" : "light"
-  const response = await renderCustomEmbedImage(
-    embed.title,
-    embed.description,
-    theme
-  )
+  const [title, description] = await Promise.all([
+    resolveEmbedText(embed.image_title || embed.title),
+    resolveEmbedText(embed.image_description),
+  ])
+  const response = await renderCustomEmbedImage(title, description, theme)
   response.headers.set(
     "Cache-Control",
     "public, max-age=0, s-maxage=300, stale-while-revalidate=86400"

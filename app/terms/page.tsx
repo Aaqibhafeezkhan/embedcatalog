@@ -66,7 +66,7 @@ const sections = [
   {
     title: "7. Third-party services",
     paragraphs: [
-      "The service links to or relies on third parties, including Supabase, analytics providers, PayPal, hosting providers, project websites, and social networks. We do not control their availability, content, security, or privacy practices. Use them at your own risk and review their terms. PayPal is used for direct payments arranged outside the website; the website does not operate or control PayPal's payment infrastructure.",
+      "The service links to or relies on third parties, including Supabase, Resend (email delivery), analytics providers, PayPal, hosting providers, project websites, and social networks. We do not control their availability, content, security, or privacy practices. Use them at your own risk and review their terms. PayPal is used for direct payments arranged outside the website; the website does not operate or control PayPal's payment infrastructure.",
     ],
   },
   {

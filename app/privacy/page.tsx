@@ -142,8 +142,11 @@ export default function PrivacyPage() {
             infrastructure. Supabase may process account and project data on our
             behalf. We may use Google Analytics for measurement if it is
             enabled. Google and Supabase process data under their own terms and
-            privacy documentation. We may also use hosting, email, payment,
-            security, and legal providers as needed to operate the service.
+            privacy documentation. We use Resend as our SMTP provider to send
+            authentication emails (such as sign-in links); Resend receives your
+            email address and the message content for this purpose. We may also
+            use hosting, email, payment, security, and legal providers as needed
+            to operate the service.
           </p>
           <p className="mt-2">
             Published project information, project URLs, social links, embeds,

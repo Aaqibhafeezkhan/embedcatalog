@@ -174,7 +174,7 @@ function StandaloneEmbedCard({
                   disabled={linking || Boolean(pendingProjectRequest)}
                   className="flex cursor-pointer items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
                 >
-                  {linkedProject ? "Request unlink" : "Not linked"}
+                  {linkedProject ? "Unlink" : "Not linked"}
                   {!linkedProject && <Check className="size-4" />}
                 </DropdownMenu.Item>
                 <DropdownMenu.Separator className="my-1 h-px bg-border" />
@@ -453,6 +453,37 @@ function AccountEmbedsPage() {
     setError(null)
     setNotice(null)
 
+    // Unpublished projects (draft/rejected) aren't public, so linking needs no moderation.
+    // Rejected edits of published projects keep status "published".
+    const targetProject = projectId
+      ? projects.find((project) => project.id === projectId)
+      : embed.project_id
+        ? projects.find((project) => project.id === embed.project_id)
+        : undefined
+    if (
+      targetProject?.status === "draft" ||
+      targetProject?.status === "rejected"
+    ) {
+      const { error: directError } = await supabase
+        .from("standalone_embeds")
+        .update({ project_id: projectId })
+        .eq("id", embed.id)
+        .eq("owner_id", user!.id)
+
+      if (directError) {
+        setError(directError.message)
+      } else {
+        setStandaloneEmbeds((current) =>
+          current.map((item) =>
+            item.id === embed.id ? { ...item, project_id: projectId } : item
+          )
+        )
+        setNotice(projectId ? "Embed linked to project." : "Embed unlinked.")
+      }
+      setLinkingId(null)
+      return
+    }
+
     const { data, error: updateError } = await supabase
       .from("standalone_embed_project_requests")
       .insert({
@@ -511,6 +542,12 @@ function AccountEmbedsPage() {
   }
 
   const projectsById = new Map(projects.map((project) => [project.id, project]))
+  const linkedEmbeds = standaloneEmbeds.flatMap((embed) => {
+    const project = embed.project_id
+      ? projectsById.get(embed.project_id)
+      : undefined
+    return project ? [{ embed, project }] : []
+  })
 
   return (
     <main className="site-container py-8 sm:py-12">
@@ -544,51 +581,6 @@ function AccountEmbedsPage() {
       )}
 
       <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="font-semibold">Project embeds</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Embeds configured on your projects.
-          </p>
-        </div>
-        {projectEmbeds.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-              <Images className="size-7 text-muted-foreground" />
-              <p className="font-medium">No project embeds yet</p>
-              <Button variant="link" asChild>
-                <Link href="/account/create-project">Create a project</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {projectEmbeds.map((embed) => (
-              <Card key={embed.id} className="gap-3 py-4 shadow-none">
-                <CardHeader className="px-4">
-                  <CardTitle className="text-sm font-medium">
-                    {embed.title}
-                  </CardTitle>
-                  <CardDescription>
-                    {embed.project.name} · {embed.project.status}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3 px-4">
-                  <p className="text-sm text-muted-foreground">
-                    {embed.description || "No description provided."}
-                  </p>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/account/edit-embeds?id=${embed.project.id}`}>
-                      Edit project embeds
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="mt-10 flex flex-col gap-4">
         <div>
           <h2 className="font-semibold">Custom embeds</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -629,6 +621,76 @@ function AccountEmbedsPage() {
               onEmbedUpdated={updateStandaloneEmbed}
             />
           ))
+        )}
+      </section>
+
+      <section className="mt-10 flex flex-col gap-4">
+        <div>
+          <h2 className="font-semibold">Published project embeds</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Embeds configured on your projects.
+          </p>
+        </div>
+        {projectEmbeds.length === 0 && linkedEmbeds.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
+              <Images className="size-7 text-muted-foreground" />
+              <p className="font-medium">No project embeds yet</p>
+              <Button variant="link" asChild>
+                <Link href="/account/create-project">Create a project</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {projectEmbeds.map((embed) => (
+              <Card key={embed.id} className="gap-3 py-4 shadow-none">
+                <CardHeader className="px-4">
+                  <CardTitle className="text-sm font-medium">
+                    {embed.title}
+                  </CardTitle>
+                  <CardDescription>
+                    {embed.project.name} · {embed.project.status}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3 px-4">
+                  <p className="text-sm text-muted-foreground">
+                    {embed.description || "No description provided."}
+                  </p>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/account/edit-embeds?id=${embed.project.id}`}>
+                      Edit project embeds
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+            {linkedEmbeds.map(({ embed, project }) => (
+              <Card key={embed.id} className="gap-3 py-4 shadow-none">
+                <CardHeader className="px-4">
+                  <CardTitle className="text-sm font-medium">
+                    {embed.title}
+                  </CardTitle>
+                  <CardDescription>
+                    {project.name} · {project.status}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3 px-4">
+                  <p className="text-sm text-muted-foreground">
+                    {embed.description || "No description provided."}
+                  </p>
+                  {project.status === "published" &&
+                    embed.status === "approved" && (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/projects/${project.slug}/${embed.slug}`}>
+                          View embed
+                        </Link>
+                      </Button>
+                    )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
       </section>
     </main>

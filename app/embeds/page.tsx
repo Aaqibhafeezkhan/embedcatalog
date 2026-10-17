@@ -76,7 +76,9 @@ function EmbedsPageContent() {
           .eq("status", "published"),
         supabase
           .from("standalone_embeds")
-          .select("id, owner_id, slug, title, views_count, upvotes_count")
+          .select(
+            "id, owner_id, slug, title, views_count, upvotes_count, project_id"
+          )
           .eq("status", "approved"),
       ])
 
@@ -90,7 +92,17 @@ function EmbedsPageContent() {
       const projects = projectsResult.data ?? []
       const userEmbeds = userEmbedsResult.data ?? []
       const projectIds = projects.map((project) => project.id)
-      const ownerIds = [...new Set(userEmbeds.map((embed) => embed.owner_id))]
+      const projectsById = new Map(
+        projects.map((project) => [project.id, project])
+      )
+      // Embeds linked to a published project belong to that project.
+      const isLinked = (embed: (typeof userEmbeds)[number]) =>
+        Boolean(embed.project_id && projectsById.has(embed.project_id))
+      const ownerIds = [
+        ...new Set(
+          userEmbeds.filter((embed) => !isLinked(embed)).map((e) => e.owner_id)
+        ),
+      ]
 
       const [projectEmbedsResult, profilesResult] = await Promise.all([
         projectIds.length
@@ -114,9 +126,6 @@ function EmbedsPageContent() {
         return
       }
 
-      const projectsById = new Map(
-        projects.map((project) => [project.id, project])
-      )
       const profilesById = new Map(
         profilesResult.data.map((profile) => [profile.id, profile])
       )
@@ -136,7 +145,29 @@ function EmbedsPageContent() {
           },
         ]
       })
+      const linkedEmbeds = userEmbeds.flatMap((embed) => {
+        const project = embed.project_id
+          ? projectsById.get(embed.project_id)
+          : undefined
+        if (!project) return []
+
+        return [
+          {
+            key: `user-${embed.id}`,
+            source: "project" as const,
+            title: embed.title,
+            projectName: project.name,
+            projectSlug: project.slug,
+            projectUrl: project.url,
+            standaloneSlug: embed.slug,
+            embedId: embed.id,
+            viewsCount: embed.views_count,
+            upvotesCount: embed.upvotes_count,
+          },
+        ]
+      })
       const standaloneEmbeds = userEmbeds.flatMap((embed) => {
+        if (isLinked(embed)) return []
         const profile = profilesById.get(embed.owner_id)
         if (!profile) return []
 
@@ -157,7 +188,7 @@ function EmbedsPageContent() {
         ]
       })
 
-      setEmbeds([...projectEmbeds, ...standaloneEmbeds])
+      setEmbeds([...projectEmbeds, ...linkedEmbeds, ...standaloneEmbeds])
       setLoading(false)
     }
 
@@ -278,8 +309,9 @@ function EmbedsPageContent() {
                 standaloneProfileSlug={
                   embed.source === "user" ? embed.profileSlug : undefined
                 }
-                standaloneSlug={
-                  embed.source === "user" ? embed.standaloneSlug : undefined
+                standaloneSlug={embed.standaloneSlug}
+                standaloneProjectSlug={
+                  embed.source === "project" ? embed.projectSlug : undefined
                 }
                 projectUrl={embed.projectUrl}
                 title={embed.title}

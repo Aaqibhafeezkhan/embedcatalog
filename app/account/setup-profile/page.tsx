@@ -35,6 +35,7 @@ function SetupProfilePage() {
   const { user, loading } = useAuth()
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
   const [profileSlug, setProfileSlug] = React.useState("")
+  const [displayNameValue, setDisplayNameValue] = React.useState("")
   const [profileLoading, setProfileLoading] = React.useState(true)
   const [avatarPreview, setAvatarPreview] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
@@ -42,9 +43,6 @@ function SetupProfilePage() {
 
   React.useEffect(() => {
     if (!loading && !user) router.replace("/login")
-    else if (!loading && user?.user_metadata?.profile_setup_completed) {
-      router.replace("/account")
-    }
   }, [loading, router, user])
 
   React.useEffect(() => {
@@ -82,12 +80,7 @@ function SetupProfilePage() {
     [avatarPreview]
   )
 
-  if (
-    loading ||
-    !user ||
-    user.user_metadata?.profile_setup_completed ||
-    profileLoading
-  ) {
+  if (loading || !user || profileLoading) {
     return (
       <div className="flex min-h-[70svh] items-center justify-center">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -162,6 +155,7 @@ function SetupProfilePage() {
         avatar_url: avatarUrl,
         socials,
         bio,
+        is_confirmed: true,
       })
       .eq("id", user.id)
 
@@ -192,7 +186,8 @@ function SetupProfilePage() {
       return
     }
 
-    router.replace("/account")
+    // Full reload so the account guard re-reads is_confirmed.
+    window.location.assign("/account")
   }
 
   return (
@@ -248,7 +243,9 @@ function SetupProfilePage() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="profile-slug">Public username</Label>
+              <Label htmlFor="profile-slug">
+                Public username <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="profile-slug"
                 name="slug"
@@ -260,6 +257,7 @@ function SetupProfilePage() {
                 required
                 onChange={(event) => {
                   event.target.value = normalizeUsername(event.target.value)
+                  setProfileSlug(event.target.value)
                   setError(null)
                 }}
               />
@@ -269,7 +267,9 @@ function SetupProfilePage() {
               </p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="profile-display-name">Display name</Label>
+              <Label htmlFor="profile-display-name">
+                Display name <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="profile-display-name"
                 name="displayName"
@@ -277,10 +277,12 @@ function SetupProfilePage() {
                 placeholder="Your name"
                 maxLength={80}
                 required
+                value={displayNameValue}
+                onChange={(event) => setDisplayNameValue(event.target.value)}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="profile-bio">About you (optional)</Label>
+              <Label htmlFor="profile-bio">About you</Label>
               <Textarea
                 id="profile-bio"
                 name="bio"
@@ -324,7 +326,12 @@ function SetupProfilePage() {
                 {error}
               </p>
             )}
-            <Button type="submit" disabled={saving}>
+            <Button
+              type="submit"
+              disabled={
+                saving || !profileSlug.trim() || !displayNameValue.trim()
+              }
+            >
               {saving && <Loader2 className="size-4 animate-spin" />}
               {saving ? "Saving profile" : "Continue to account"}
             </Button>

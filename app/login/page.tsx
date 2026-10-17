@@ -38,11 +38,7 @@ function LoginPage() {
 
   React.useEffect(() => {
     if (!loading && user) {
-      router.replace(
-        user.user_metadata?.profile_setup_completed
-          ? "/account"
-          : "/account/setup-profile"
-      )
+      router.replace("/account")
     }
   }, [loading, user, router])
 
@@ -54,7 +50,7 @@ function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${siteConfig.url}/account/setup-profile`,
+        emailRedirectTo: `${siteConfig.url}/account`,
       },
     })
 
@@ -72,7 +68,7 @@ function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: `${siteConfig.url}/account/setup-profile`,
+        redirectTo: `${siteConfig.url}/account`,
       },
     })
   }

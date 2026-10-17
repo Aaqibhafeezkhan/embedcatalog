@@ -10,6 +10,7 @@ export type Database = {
           avatar_url: string | null
           socials: Record<string, string>
           bio: string
+          is_confirmed: boolean
           created_at: string
         }
         Insert: {
@@ -20,6 +21,7 @@ export type Database = {
           avatar_url?: string | null
           socials?: Record<string, string>
           bio?: string
+          is_confirmed?: boolean
           created_at?: string
         }
         Update: {
@@ -30,6 +32,7 @@ export type Database = {
           avatar_url?: string | null
           socials?: Record<string, string>
           bio?: string
+          is_confirmed?: boolean
           created_at?: string
         }
         Relationships: []

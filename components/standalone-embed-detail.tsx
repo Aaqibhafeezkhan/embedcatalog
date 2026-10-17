@@ -21,6 +21,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "components/ui/card"
 import {
   type EmbedTheme,
   getCustomEmbedSize,
+  getLinkedEmbedPagePath,
+  getPublicLinkedEmbedSrc,
   getPublicStandaloneEmbedSrc,
 } from "lib/embed"
 import { siteConfig } from "lib/site"
@@ -73,10 +75,12 @@ function CopyField({ label, value }: { label: string; value: string }) {
 function StandaloneEmbedDetail({
   profileSlug,
   author,
+  project,
   embed,
 }: {
-  profileSlug: string
-  author: { displayName: string; avatarUrl: string | null }
+  profileSlug?: string
+  author?: { displayName: string; avatarUrl: string | null }
+  project?: { slug: string; name: string }
   embed: StandaloneEmbed
 }) {
   const router = useRouter()
@@ -93,13 +97,17 @@ function StandaloneEmbedDetail({
   const requestInProgress = React.useRef(false)
 
   const { width, height } = getCustomEmbedSize()
-  const embedSrc = getPublicStandaloneEmbedSrc(
-    siteConfig.url,
-    profileSlug,
-    embed.slug,
-    theme
-  )
-  const pageUrl = `${siteConfig.url}/user/${encodeURIComponent(profileSlug)}/embed/${encodeURIComponent(embed.slug)}`
+  const embedSrc = project
+    ? getPublicLinkedEmbedSrc(siteConfig.url, project.slug, embed.slug, theme)
+    : getPublicStandaloneEmbedSrc(
+        siteConfig.url,
+        profileSlug ?? "",
+        embed.slug,
+        theme
+      )
+  const pageUrl = project
+    ? `${siteConfig.url}${getLinkedEmbedPagePath(project.slug, embed.slug)}`
+    : `${siteConfig.url}/user/${encodeURIComponent(profileSlug ?? "")}/embed/${encodeURIComponent(embed.slug)}`
   const html = `<a href="${pageUrl}" target="_blank" rel="noreferrer noopener"><img src="${embedSrc}" alt="${embed.title}" style="width: ${width}px; height: ${height}px;" /></a>`
 
   // Count one view per browser session.
@@ -181,35 +189,53 @@ function StandaloneEmbedDetail({
   return (
     <main className="site-container py-8 sm:py-12">
       <Button variant="ghost" size="sm" asChild>
-        <Link href={`/user/${encodeURIComponent(profileSlug)}`}>
-          <ArrowLeft className="size-4" />@{profileSlug}
-        </Link>
+        {project ? (
+          <Link href={`/projects/${encodeURIComponent(project.slug)}`}>
+            <ArrowLeft className="size-4" />
+            {project.name}
+          </Link>
+        ) : (
+          <Link href={`/user/${encodeURIComponent(profileSlug ?? "")}`}>
+            <ArrowLeft className="size-4" />@{profileSlug}
+          </Link>
+        )}
       </Button>
 
       <header className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold">{embed.title}</h1>
-          <Link
-            href={`/user/${encodeURIComponent(profileSlug)}`}
-            className="mt-2 flex w-fit items-center gap-2 text-sm hover:underline"
-          >
-            <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
-              {author.avatarUrl ? (
-                <Image
-                  src={author.avatarUrl}
-                  alt=""
-                  width={28}
-                  height={28}
-                  unoptimized
-                  className="size-full object-cover"
-                />
-              ) : (
-                <UserRound className="size-4 text-muted-foreground" />
-              )}
-            </span>
-            <span className="font-medium">{author.displayName}</span>
-            <span className="text-muted-foreground">@{profileSlug}</span>
-          </Link>
+          {project ? (
+            <Link
+              href={`/projects/${encodeURIComponent(project.slug)}`}
+              className="mt-2 block w-fit text-sm font-medium hover:underline"
+            >
+              {project.name}
+            </Link>
+          ) : (
+            <Link
+              href={`/user/${encodeURIComponent(profileSlug ?? "")}`}
+              className="mt-2 flex w-fit items-center gap-2 text-sm hover:underline"
+            >
+              <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
+                {author?.avatarUrl ? (
+                  <Image
+                    src={author.avatarUrl}
+                    alt=""
+                    width={28}
+                    height={28}
+                    unoptimized
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <UserRound className="size-4 text-muted-foreground" />
+                )}
+              </span>
+              <span className="font-medium">
+                {author?.displayName ?? profileSlug}
+              </span>
+              <span className="text-muted-foreground">@{profileSlug}</span>
+            </Link>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
             Created{" "}
             <time dateTime={embed.createdAt}>

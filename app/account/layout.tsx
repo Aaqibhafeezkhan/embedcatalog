@@ -1,5 +1,7 @@
 import type { Metadata } from "next"
 
+import { AccountGuard } from "components/account-guard"
+
 export const metadata: Metadata = {
   title: "Account",
 }
@@ -9,5 +11,5 @@ export default function AccountLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  return children
+  return <AccountGuard>{children}</AccountGuard>
 }

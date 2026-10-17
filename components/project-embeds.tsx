@@ -19,8 +19,10 @@ import {
   type EmbedTheme,
   getCustomEmbedSize,
   getEmbedSize,
+  getLinkedEmbedPagePath,
   getPublicCustomEmbedSrc,
   getPublicEmbedSrc,
+  getPublicLinkedEmbedSrc,
   getPublicStandaloneEmbedSrc,
 } from "lib/embed"
 import { siteConfig } from "lib/site"
@@ -143,6 +145,7 @@ export function CustomEmbedCard({
   shortId,
   standaloneProfileSlug,
   standaloneSlug,
+  standaloneProjectSlug,
   projectUrl,
   title,
   projectName,
@@ -156,6 +159,7 @@ export function CustomEmbedCard({
   shortId?: string
   standaloneProfileSlug?: string
   standaloneSlug?: string
+  standaloneProjectSlug?: string
   projectUrl: string
   title: string
   projectName?: string
@@ -170,20 +174,33 @@ export function CustomEmbedCard({
 }) {
   const [theme, setTheme] = React.useState<EmbedTheme>("light")
   const { width, height } = getCustomEmbedSize()
+  // Embeds linked to a project use the project's URLs instead of the author's.
+  const standalonePagePath =
+    standaloneSlug && standaloneProjectSlug
+      ? getLinkedEmbedPagePath(standaloneProjectSlug, standaloneSlug)
+      : standaloneProfileSlug && standaloneSlug
+        ? `/user/${encodeURIComponent(standaloneProfileSlug)}/embed/${encodeURIComponent(standaloneSlug)}`
+        : null
   const embedSrc =
-    standaloneProfileSlug && standaloneSlug
-      ? getPublicStandaloneEmbedSrc(
+    standaloneSlug && standaloneProjectSlug
+      ? getPublicLinkedEmbedSrc(
           siteConfig.url,
-          standaloneProfileSlug,
+          standaloneProjectSlug,
           standaloneSlug,
           theme
         )
-      : getPublicCustomEmbedSrc(siteConfig.url, slug, shortId ?? "", theme)
+      : standaloneProfileSlug && standaloneSlug
+        ? getPublicStandaloneEmbedSrc(
+            siteConfig.url,
+            standaloneProfileSlug,
+            standaloneSlug,
+            theme
+          )
+        : getPublicCustomEmbedSrc(siteConfig.url, slug, shortId ?? "", theme)
   const html = buildEmbedImageHtml({
-    projectUrl:
-      standaloneProfileSlug && standaloneSlug
-        ? `${siteConfig.url}/user/${encodeURIComponent(standaloneProfileSlug)}/embed/${encodeURIComponent(standaloneSlug)}`
-        : projectUrl,
+    projectUrl: standalonePagePath
+      ? `${siteConfig.url}${standalonePagePath}`
+      : projectUrl,
     title,
     embedSrc,
     width,
@@ -194,11 +211,8 @@ export function CustomEmbedCard({
     <Card className="gap-4 py-4 shadow-none">
       <CardHeader className="border-b px-4 pb-4">
         <CardTitle className="text-sm font-medium">
-          {standaloneProfileSlug && standaloneSlug ? (
-            <Link
-              href={`/user/${encodeURIComponent(standaloneProfileSlug)}/embed/${encodeURIComponent(standaloneSlug)}`}
-              className="hover:underline"
-            >
+          {standalonePagePath ? (
+            <Link href={standalonePagePath} className="hover:underline">
               {title}
             </Link>
           ) : (
@@ -371,6 +385,7 @@ export type CustomEmbed = {
   description: string
   standaloneProfileSlug?: string
   standaloneSlug?: string
+  linkedToProject?: boolean
 }
 
 type EmbedTab = "default" | "premium" | "custom"
@@ -401,38 +416,20 @@ function ProjectEmbeds({
     async function loadAttachedEmbeds() {
       const { data: embeds, error: embedsError } = await supabase
         .from("standalone_embeds")
-        .select("id, owner_id, slug, title, description, project_id, status")
+        .select("id, slug, title, description")
         .eq("project_id", projectId)
         .eq("status", "approved")
 
       if (cancelled || embedsError || !embeds?.length) return
 
-      const ownerIds = [...new Set(embeds.map((embed) => embed.owner_id))]
-      const { data: profiles, error: profilesError } = await supabase.rpc(
-        "get_public_profiles",
-        { p_profile_ids: ownerIds }
-      )
-
-      if (cancelled || profilesError || !profiles) return
-
-      const profileSlugs = new Map(
-        profiles.map((profile) => [profile.id, profile.slug])
-      )
       setAttachedStandaloneEmbeds(
-        embeds.flatMap((embed) => {
-          const profileSlug = profileSlugs.get(embed.owner_id)
-          if (!profileSlug) return []
-
-          return [
-            {
-              id: embed.id,
-              title: embed.title,
-              description: embed.description,
-              standaloneProfileSlug: profileSlug,
-              standaloneSlug: embed.slug,
-            },
-          ]
-        })
+        embeds.map((embed) => ({
+          id: embed.id,
+          title: embed.title,
+          description: embed.description,
+          standaloneSlug: embed.slug,
+          linkedToProject: true,
+        }))
       )
     }
 
@@ -517,7 +514,7 @@ function ProjectEmbeds({
 
       {tab === "custom" && (
         <div className="flex flex-col gap-4">
-          {customEmbeds.length === 0 ? (
+          {customEmbeds.length + attachedStandaloneEmbeds.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               This project hasn&rsquo;t added any custom embeds yet.
             </p>
@@ -529,6 +526,8 @@ function ProjectEmbeds({
                 shortId={embed.shortId}
                 standaloneProfileSlug={embed.standaloneProfileSlug}
                 standaloneSlug={embed.standaloneSlug}
+                standaloneProjectSlug={embed.linkedToProject ? slug : undefined}
+                embedId={embed.linkedToProject ? embed.id : undefined}
                 projectUrl={externalUrl}
                 title={embed.title}
               />

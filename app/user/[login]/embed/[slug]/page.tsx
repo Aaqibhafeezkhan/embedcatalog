@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { StandaloneEmbedDetail } from "components/standalone-embed-detail"
+import { getLinkedEmbedPagePath } from "lib/embed"
 import { siteConfig } from "lib/site"
 import { createPublicServerClient } from "lib/supabase/server"
 
@@ -18,14 +19,25 @@ async function getEmbed(login: string, slug: string) {
   const { data: embed } = await client
     .from("standalone_embeds")
     .select(
-      "id, slug, title, description, views_count, upvotes_count, created_at"
+      "id, slug, title, description, views_count, upvotes_count, created_at, project_id"
     )
     .eq("owner_id", profile.id)
     .eq("slug", slug)
     .eq("status", "approved")
     .maybeSingle()
 
-  return embed ? { profile, embed } : null
+  if (!embed) return null
+
+  const { data: linkedProject } = embed.project_id
+    ? await client
+        .from("projects")
+        .select("slug")
+        .eq("id", embed.project_id)
+        .eq("status", "published")
+        .maybeSingle()
+    : { data: null }
+
+  return { profile, embed, linkedProjectSlug: linkedProject?.slug ?? null }
 }
 
 export async function generateMetadata({
@@ -51,6 +63,9 @@ export default async function StandaloneEmbedPage({
   const { login, slug } = await params
   const data = await getEmbed(login, slug)
   if (!data) notFound()
+  if (data.linkedProjectSlug) {
+    redirect(getLinkedEmbedPagePath(data.linkedProjectSlug, data.embed.slug))
+  }
 
   return (
     <StandaloneEmbedDetail

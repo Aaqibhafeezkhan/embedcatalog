@@ -46,6 +46,7 @@ function EditProjectForm() {
   const [youtubeUrl, setYoutubeUrl] = React.useState("")
   const [githubUrl, setGithubUrl] = React.useState("")
   const [embeds, setEmbeds] = React.useState<Embed[]>([])
+  const [linkedEmbedCount, setLinkedEmbedCount] = React.useState(0)
   const [saveError, setSaveError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
   const [fetching, setFetching] = React.useState(true)
@@ -121,6 +122,14 @@ function EditProjectForm() {
         setFetching(false)
         return
       }
+
+      const { count: linkedCount } = await supabase
+        .from("standalone_embeds")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", projectId as string)
+
+      if (cancelled) return
+      setLinkedEmbedCount(linkedCount ?? 0)
 
       setEmbeds(
         (projectEmbeds ?? []).map((embed, index) => ({
@@ -528,7 +537,8 @@ function EditProjectForm() {
               <CardHeader>
                 <CardTitle className="text-lg">Embeds</CardTitle>
                 <CardDescription>
-                  {embeds.length} embed{embeds.length === 1 ? "" : "s"} on this
+                  {embeds.length + linkedEmbedCount} embed
+                  {embeds.length + linkedEmbedCount === 1 ? "" : "s"} on this
                   project. Embeds are edited in a separate editor.
                 </CardDescription>
               </CardHeader>

@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import HCaptcha from "@hcaptcha/react-hcaptcha"
 import { Loader2 } from "lucide-react"
 
 import { Button } from "components/ui/button"
@@ -18,6 +19,8 @@ import {
 import { useAuth } from "components/auth-provider"
 import { supabase } from "lib/supabase/client"
 import { siteConfig } from "lib/site"
+
+const HCAPTCHA_SITE_KEY = "d44001d0-9022-40d2-a0d4-280ab46a67ec"
 
 function GithubIcon(props: React.ComponentProps<"svg">) {
   return (
@@ -35,6 +38,8 @@ function LoginPage() {
     "idle" | "sending" | "sent" | "error"
   >("idle")
   const [error, setError] = React.useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = React.useState<string | null>(null)
+  const captchaRef = React.useRef<HCaptcha>(null)
 
   React.useEffect(() => {
     if (!loading && user) {
@@ -44,6 +49,11 @@ function LoginPage() {
 
   async function handleEmailSignIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (!captchaToken) {
+      setError("Please complete the CAPTCHA verification.")
+      return
+    }
+
     setStatus("sending")
     setError(null)
 
@@ -51,8 +61,11 @@ function LoginPage() {
       email,
       options: {
         emailRedirectTo: `${siteConfig.url}/account`,
+        captchaToken,
       },
     })
+    captchaRef.current?.resetCaptcha()
+    setCaptchaToken(null)
 
     if (error) {
       setError(error.message)
@@ -111,13 +124,31 @@ function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
+            {status !== "sent" && (
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={HCAPTCHA_SITE_KEY}
+                onVerify={(token) => {
+                  setCaptchaToken(token)
+                  setError(null)
+                }}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => {
+                  setCaptchaToken(null)
+                  setError("CAPTCHA verification failed. Please try again.")
+                }}
+              />
+            )}
 
             {status === "sent" ? (
               <p className="text-sm text-muted-foreground">
                 Check your inbox for a magic link to sign in.
               </p>
             ) : (
-              <Button type="submit" disabled={status === "sending"}>
+              <Button
+                type="submit"
+                disabled={status === "sending" || !captchaToken}
+              >
                 {status === "sending" && (
                   <Loader2 className="size-4 animate-spin" />
                 )}

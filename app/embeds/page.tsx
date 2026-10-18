@@ -72,7 +72,7 @@ function EmbedsPageContent() {
       const [projectsResult, userEmbedsResult] = await Promise.all([
         supabase
           .from("projects")
-          .select("id, name, slug, url")
+          .select("id, owner_id, name, slug, url")
           .eq("status", "published"),
         supabase
           .from("standalone_embeds")
@@ -99,9 +99,12 @@ function EmbedsPageContent() {
       const isLinked = (embed: (typeof userEmbeds)[number]) =>
         Boolean(embed.project_id && projectsById.has(embed.project_id))
       const ownerIds = [
-        ...new Set(
-          userEmbeds.filter((embed) => !isLinked(embed)).map((e) => e.owner_id)
-        ),
+        ...new Set([
+          ...userEmbeds.map((embed) => embed.owner_id),
+          ...projects.flatMap((project) =>
+            project.owner_id ? [project.owner_id] : []
+          ),
+        ]),
       ]
 
       const [projectEmbedsResult, profilesResult] = await Promise.all([
@@ -142,6 +145,12 @@ function EmbedsPageContent() {
             projectName: project.name,
             projectSlug: project.slug,
             projectUrl: project.url,
+            profileSlug: project.owner_id
+              ? profilesById.get(project.owner_id)?.slug
+              : undefined,
+            avatarUrl: project.owner_id
+              ? profilesById.get(project.owner_id)?.avatar_url
+              : undefined,
           },
         ]
       })
@@ -163,6 +172,8 @@ function EmbedsPageContent() {
             embedId: embed.id,
             viewsCount: embed.views_count,
             upvotesCount: embed.upvotes_count,
+            profileSlug: profilesById.get(embed.owner_id)?.slug,
+            avatarUrl: profilesById.get(embed.owner_id)?.avatar_url,
           },
         ]
       })
@@ -298,7 +309,7 @@ function EmbedsPageContent() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {filteredEmbeds.map((embed) => (
-            <div key={embed.key}>
+            <div key={embed.key} className="h-full">
               <CustomEmbedCard
                 slug={
                   embed.source === "user"

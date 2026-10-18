@@ -208,7 +208,7 @@ export function CustomEmbedCard({
   })
 
   return (
-    <Card className="gap-4 py-4 shadow-none">
+    <Card className="h-full gap-4 py-4 shadow-none">
       <CardHeader className="border-b px-4 pb-4">
         <CardTitle className="text-sm font-medium">
           {standalonePagePath ? (
@@ -219,55 +219,58 @@ export function CustomEmbedCard({
             title
           )}
         </CardTitle>
-        {projectName && projectHref ? (
-          <Link
-            href={projectHref}
-            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
-          >
-            {projectName}
-          </Link>
-        ) : creator ? (
-          <Link
-            href={`/user/${encodeURIComponent(creator.slug)}`}
-            className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
-          >
-            <span className="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
-              {creator.avatarUrl ? (
-                <Image
-                  src={creator.avatarUrl}
-                  alt=""
-                  width={20}
-                  height={20}
-                  unoptimized
-                  className="size-full object-cover"
-                />
-              ) : (
-                <UserRound className="size-3" />
-              )}
-            </span>
-            <span>@{creator.slug}</span>
-          </Link>
-        ) : null}
+        <div className="flex flex-col gap-1.5">
+          {projectName && projectHref && (
+            <Link
+              href={projectHref}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {projectName}
+            </Link>
+          )}
+          {creator && (
+            <Link
+              href={`/user/${encodeURIComponent(creator.slug)}`}
+              className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              <span className="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
+                {creator.avatarUrl ? (
+                  <Image
+                    src={creator.avatarUrl}
+                    alt=""
+                    width={20}
+                    height={20}
+                    unoptimized
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  <UserRound className="size-3" />
+                )}
+              </span>
+              <span>@{creator.slug}</span>
+            </Link>
+          )}
+          {viewsCount !== undefined && upvotesCount !== undefined && (
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Eye className="size-3.5" />
+                {viewsCount.toLocaleString("en-US")}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <ArrowUp className="size-3.5" />
+                {upvotesCount.toLocaleString("en-US")}
+              </span>
+            </div>
+          )}
+        </div>
         <CardAction>
           <div className="flex items-center gap-3">
             <ThemeSwitch theme={theme} onThemeChange={setTheme} />
             {embedId && <EmbedBookmark embedId={embedId} />}
           </div>
         </CardAction>
-        {viewsCount !== undefined && upvotesCount !== undefined && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Eye className="size-3.5" />
-              {viewsCount.toLocaleString("en-US")}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <ArrowUp className="size-3.5" />
-              {upvotesCount.toLocaleString("en-US")}
-            </span>
-          </div>
-        )}
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 px-4">
+      <CardContent className="flex flex-1 flex-col gap-3 px-4">
         <a
           href={projectUrl}
           target="_blank"
@@ -283,7 +286,9 @@ export function CustomEmbedCard({
             unoptimized
           />
         </a>
-        <EmbedHtmlLine code={html} />
+        <div className="mt-auto">
+          <EmbedHtmlLine code={html} />
+        </div>
       </CardContent>
     </Card>
   )
@@ -383,6 +388,10 @@ export type CustomEmbed = {
   shortId?: string
   title: string
   description: string
+  creator?: {
+    slug: string
+    avatarUrl: string | null
+  }
   standaloneProfileSlug?: string
   standaloneSlug?: string
   linkedToProject?: boolean
@@ -392,6 +401,7 @@ type EmbedTab = "default" | "premium" | "custom"
 
 function ProjectEmbeds({
   projectId,
+  projectOwnerId,
   slug,
   projectName,
   externalUrl,
@@ -399,6 +409,7 @@ function ProjectEmbeds({
   customEmbeds,
 }: {
   projectId: string
+  projectOwnerId?: string | null
   slug: string
   projectName: string
   externalUrl: string
@@ -407,6 +418,8 @@ function ProjectEmbeds({
 }) {
   const catalogUrl = `${siteConfig.url}/projects/${slug}`
   const [tab, setTab] = React.useState<EmbedTab>("default")
+  const [projectCreator, setProjectCreator] =
+    React.useState<CustomEmbed["creator"]>()
   const [attachedStandaloneEmbeds, setAttachedStandaloneEmbeds] =
     React.useState<CustomEmbed[]>([])
 
@@ -416,19 +429,55 @@ function ProjectEmbeds({
     async function loadAttachedEmbeds() {
       const { data: embeds, error: embedsError } = await supabase
         .from("standalone_embeds")
-        .select("id, slug, title, description")
+        .select("id, owner_id, slug, title, description")
         .eq("project_id", projectId)
         .eq("status", "approved")
 
-      if (cancelled || embedsError || !embeds?.length) return
+      if (cancelled || embedsError) return
+
+      const ownerIds = [
+        ...new Set(
+          [
+            projectOwnerId,
+            ...(embeds ?? []).map((embed) => embed.owner_id),
+          ].filter((id): id is string => Boolean(id))
+        ),
+      ]
+      const { data: profiles } = ownerIds.length
+        ? await supabase.rpc("get_public_profiles", { p_profile_ids: ownerIds })
+        : { data: [] }
+
+      if (cancelled) return
+
+      const profilesById = new Map(
+        (profiles ?? []).map((profile) => [profile.id, profile])
+      )
+      const projectProfile = projectOwnerId
+        ? profilesById.get(projectOwnerId)
+        : undefined
+
+      setProjectCreator(
+        projectProfile
+          ? {
+              slug: projectProfile.slug,
+              avatarUrl: projectProfile.avatar_url,
+            }
+          : undefined
+      )
 
       setAttachedStandaloneEmbeds(
-        embeds.map((embed) => ({
+        (embeds ?? []).map((embed) => ({
           id: embed.id,
           title: embed.title,
           description: embed.description,
           standaloneSlug: embed.slug,
           linkedToProject: true,
+          creator: profilesById.has(embed.owner_id)
+            ? {
+                slug: profilesById.get(embed.owner_id)!.slug,
+                avatarUrl: profilesById.get(embed.owner_id)!.avatar_url,
+              }
+            : undefined,
         }))
       )
     }
@@ -437,7 +486,7 @@ function ProjectEmbeds({
     return () => {
       cancelled = true
     }
-  }, [projectId])
+  }, [projectId, projectOwnerId])
 
   const defaultGroups = [
     { title: "License", kind: "license" as const },
@@ -530,6 +579,7 @@ function ProjectEmbeds({
                 embedId={embed.linkedToProject ? embed.id : undefined}
                 projectUrl={externalUrl}
                 title={embed.title}
+                creator={embed.creator ?? projectCreator}
               />
             ))
           )}

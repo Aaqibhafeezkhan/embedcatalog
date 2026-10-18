@@ -228,6 +228,7 @@ export default async function ProjectPage({
 
             <ProjectEmbeds
               projectId={project.id}
+              projectOwnerId={project.ownerId}
               slug={project.slug}
               projectName={project.name}
               externalUrl={project.url}

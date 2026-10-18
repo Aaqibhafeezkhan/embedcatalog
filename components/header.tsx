@@ -30,6 +30,7 @@ const navLinks = [
   { label: "Home", href: "/" },
   { label: "About", href: "/about" },
   { label: "Embeds", href: "/embeds" },
+  { label: "Top creators", href: "/top-creators" },
   { label: "Hacktoberfest 2026", href: "/hacktoberfest-2026" },
 ]
 

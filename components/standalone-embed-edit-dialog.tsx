@@ -15,8 +15,10 @@ type StandaloneEmbed = Database["public"]["Tables"]["standalone_embeds"]["Row"]
 type StandaloneEmbedEditDialogProps = {
   embed: StandaloneEmbed
   open: boolean
+  requiresModeration?: boolean
   onOpenChange: (open: boolean) => void
   onSaved: (embed: StandaloneEmbed) => void
+  onModerationSubmitted?: () => void
 }
 
 const maxEdits = 20
@@ -24,8 +26,10 @@ const maxEdits = 20
 function StandaloneEmbedEditDialog({
   embed,
   open,
+  requiresModeration = false,
   onOpenChange,
   onSaved,
+  onModerationSubmitted,
 }: StandaloneEmbedEditDialogProps) {
   const dialogRef = React.useRef<HTMLDialogElement>(null)
   const [title, setTitle] = React.useState(embed.title)
@@ -65,6 +69,30 @@ function StandaloneEmbedEditDialog({
 
     setSaving(true)
     setError(null)
+
+    if (requiresModeration) {
+      const { error: requestError } = await supabase
+        .from("standalone_embed_edit_requests")
+        .insert({
+          embed_id: embed.id,
+          owner_id: embed.owner_id,
+          slug: nextSlug,
+          title: nextTitle,
+          image_title: imageTitle.trim(),
+          image_description: description.trim(),
+        })
+
+      setSaving(false)
+      if (requestError) {
+        setError(requestError.message)
+        return
+      }
+
+      onModerationSubmitted?.()
+      closeEditor()
+      return
+    }
+
     const { data, error: updateError } = await supabase
       .from("standalone_embeds")
       .update({
@@ -119,6 +147,12 @@ function StandaloneEmbedEditDialog({
           {editsRemaining} edits remaining. Editing ends 24 hours after
           creation.
         </p>
+        {requiresModeration && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Changes to embeds on published projects are reviewed before they go
+            live.
+          </p>
+        )}
         <div className="mt-5 grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor={`edit-embed-name-${embed.id}`}>Name</Label>

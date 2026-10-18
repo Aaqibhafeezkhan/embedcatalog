@@ -20,14 +20,20 @@ async function getEmbed(slug: string, embedSlug: string) {
   const { data: embed } = await client
     .from("standalone_embeds")
     .select(
-      "id, slug, title, description, views_count, upvotes_count, created_at"
+      "id, owner_id, slug, title, description, views_count, upvotes_count, created_at"
     )
     .eq("project_id", project.id)
     .eq("slug", embedSlug)
     .eq("status", "approved")
     .maybeSingle()
 
-  return embed ? { project, embed } : null
+  if (!embed) return null
+
+  const { data: profiles } = await client.rpc("get_public_profiles", {
+    p_profile_ids: [embed.owner_id],
+  })
+
+  return { project, embed, profile: profiles?.[0] ?? null }
 }
 
 export async function generateMetadata({
@@ -56,6 +62,15 @@ export default async function ProjectEmbedPage({
 
   return (
     <StandaloneEmbedDetail
+      profileSlug={data.profile?.slug}
+      author={
+        data.profile
+          ? {
+              displayName: data.profile.display_name || data.profile.slug,
+              avatarUrl: data.profile.avatar_url,
+            }
+          : undefined
+      }
       project={{ slug: data.project.slug, name: data.project.name }}
       embed={{
         createdAt: data.embed.created_at,

@@ -211,7 +211,8 @@ function StandaloneEmbedDetail({
             >
               {project.name}
             </Link>
-          ) : (
+          ) : null}
+          {profileSlug ? (
             <Link
               href={`/user/${encodeURIComponent(profileSlug ?? "")}`}
               className="mt-2 flex w-fit items-center gap-2 text-sm hover:underline"
@@ -235,7 +236,7 @@ function StandaloneEmbedDetail({
               </span>
               <span className="text-muted-foreground">@{profileSlug}</span>
             </Link>
-          )}
+          ) : null}
           <p className="mt-1 text-xs text-muted-foreground">
             Created{" "}
             <time dateTime={embed.createdAt}>

@@ -54,7 +54,6 @@ function ProjectDetail({
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
-          projectId={project.id}
           Back to projects
         </Link>
 
@@ -146,6 +145,7 @@ function ProjectDetail({
         </div>
         <ProjectEmbeds
           projectId={project.id}
+          projectOwnerId={project.ownerId}
           slug={project.slug}
           projectName={project.name}
           externalUrl={project.url}

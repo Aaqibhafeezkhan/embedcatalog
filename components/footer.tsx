@@ -37,12 +37,28 @@ function MailIcon(props: React.ComponentProps<"svg">) {
   )
 }
 
-const navLinks = [
-  { label: "Home", href: "/" },
-  { label: "About", href: "/about" },
-  { label: "Embeds", href: "/embeds" },
-  { label: "Hacktoberfest 2026", href: "/hacktoberfest-2026" },
-  { label: "Submit", href: "/submit" },
+const footerGroups = [
+  {
+    title: "Explore",
+    links: [
+      { label: "Projects", href: "/" },
+      { label: "Browse embeds", href: "/embeds" },
+      { label: "Top creators", href: "/top-creators" },
+      { label: "Hacktoberfest 2026", href: "/hacktoberfest-2026" },
+    ],
+  },
+  {
+    title: "Create",
+    links: [
+      { label: "Submit a project", href: "/submit" },
+      { label: "Create a project", href: "/account/create-project" },
+      { label: "Create a custom embed", href: "/account/create-embed" },
+    ],
+  },
+  {
+    title: "Information",
+    links: [{ label: "About EmbedCatalog", href: "/about" }],
+  },
 ]
 
 const socialLinks = [
@@ -63,74 +79,76 @@ function Footer() {
   return (
     <footer className="border-t bg-background">
       <div className="site-container py-12">
-        <div className="flex flex-col gap-8 sm:flex-row">
-          <div>
+        <div className="grid gap-10 border-b pb-10 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,1.5fr)_repeat(3,minmax(0,1fr))]">
+          <div className="max-w-sm">
             <Link href="/" className="flex items-center font-semibold">
               <span>{siteConfig.name}</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
               {siteConfig.slogan}
             </p>
+            <div className="mt-5 flex items-center gap-1">
+              {socialLinks.map((social) => {
+                const isExternal = social.href.startsWith("http")
+                return (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    aria-label={social.label}
+                    title={social.label}
+                    target={isExternal ? "_blank" : undefined}
+                    rel={isExternal ? "noreferrer noopener" : undefined}
+                    className="flex size-9 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <social.icon className="size-4" />
+                  </a>
+                )
+              })}
+            </div>
           </div>
 
-          <nav>
-            <h3 className="text-sm font-medium">Pages</h3>
-            <ul className="mt-3 space-y-2">
-              {navLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          {footerGroups.map((group) => (
+            <nav key={group.title} aria-label={group.title}>
+              <h3 className="text-sm font-medium">{group.title}</h3>
+              <ul className="mt-4 space-y-2.5">
+                {group.links.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
 
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t pt-6 sm:flex-row">
-          <div className="flex flex-col items-center gap-1 sm:flex-row sm:gap-4">
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} {siteConfig.name} All rights
-              reserved.
-            </p>
+        <div className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <p className="text-center text-sm text-muted-foreground sm:text-left">
+            © {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
+          </p>
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 sm:justify-end">
             <Link
               href="/privacy"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
-              Privacy Notice
+              Privacy
             </Link>
             <Link
               href="/terms"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
-              Terms of Service
+              Terms
             </Link>
             <Link
               href="/submission-terms"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
             >
-              Submission Terms
+              Submission terms
             </Link>
-          </div>
-          <div className="flex items-center gap-1">
-            {socialLinks.map((social) => {
-              const isExternal = social.href.startsWith("http")
-              return (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  aria-label={social.label}
-                  target={isExternal ? "_blank" : undefined}
-                  rel={isExternal ? "noreferrer noopener" : undefined}
-                  className="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <social.icon className="size-4" />
-                </a>
-              )
-            })}
           </div>
         </div>
       </div>

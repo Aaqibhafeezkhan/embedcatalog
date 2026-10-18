@@ -112,6 +112,34 @@ export type Database = {
         Update: never
         Relationships: []
       }
+      standalone_embed_edit_requests: {
+        Row: {
+          id: string
+          embed_id: string
+          owner_id: string
+          slug: string
+          title: string
+          image_title: string
+          image_description: string
+          status: "pending" | "approved" | "rejected"
+          created_at: string
+          reviewed_at: string | null
+        }
+        Insert: {
+          id?: string
+          embed_id: string
+          owner_id: string
+          slug: string
+          title: string
+          image_title?: string
+          image_description?: string
+          status?: "pending" | "approved" | "rejected"
+          created_at?: string
+          reviewed_at?: string | null
+        }
+        Update: never
+        Relationships: []
+      }
       standalone_embed_bookmarks: {
         Row: {
           embed_id: string
@@ -323,6 +351,10 @@ export type Database = {
         Returns: undefined
       }
       review_standalone_embed_project_request: {
+        Args: { p_request_id: string; p_approve: boolean }
+        Returns: undefined
+      }
+      review_standalone_embed_edit_request: {
         Args: { p_request_id: string; p_approve: boolean }
         Returns: undefined
       }

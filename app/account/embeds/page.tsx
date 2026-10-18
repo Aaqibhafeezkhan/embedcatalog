@@ -52,6 +52,7 @@ type PendingProjectRequest = {
   embed_id: string
   project_id: string | null
 }
+type PendingEmbedEditRequest = { embed_id: string }
 
 function StandaloneEmbedCard({
   embed,
@@ -59,22 +60,26 @@ function StandaloneEmbedCard({
   projects,
   linkedProject,
   pendingProjectRequest,
+  pendingEditRequest,
   linking,
   deleting,
   onProjectChange,
   onDelete,
   onEmbedUpdated,
+  onEditSubmitted,
 }: {
   embed: StandaloneEmbed
   profileSlug: string | null
   projects: OwnedProject[]
   linkedProject?: OwnedProject
   pendingProjectRequest?: PendingProjectRequest
+  pendingEditRequest?: PendingEmbedEditRequest
   linking: boolean
   deleting: boolean
   onProjectChange: (projectId: string | null) => void
   onDelete: () => void
   onEmbedUpdated: (embed: StandaloneEmbed) => void
+  onEditSubmitted: () => void
 }) {
   const [theme, setTheme] = React.useState<StandaloneEmbedTheme>("light")
   const [copied, setCopied] = React.useState(false)
@@ -133,7 +138,9 @@ function StandaloneEmbedCard({
         <CardTitle className="text-sm font-medium">{embed.title}</CardTitle>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{embed.slug}.png</span>
-          {pendingProjectRequest ? (
+          {pendingEditRequest ? (
+            <span>Changes pending review</span>
+          ) : pendingProjectRequest ? (
             <span>Application pending</span>
           ) : linkedProject ? (
             <span>Linked to {linkedProject.name}</span>
@@ -163,15 +170,21 @@ function StandaloneEmbedCard({
                 className="z-50 min-w-52 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
               >
                 <DropdownMenu.Label className="px-2 py-1.5 text-xs text-muted-foreground">
-                  {pendingProjectRequest
-                    ? "Application pending review"
-                    : linkedProject
-                      ? `Linked to ${linkedProject.name}`
-                      : "Link to project"}
+                  {pendingEditRequest
+                    ? "Changes pending review"
+                    : pendingProjectRequest
+                      ? "Application pending review"
+                      : linkedProject
+                        ? `Linked to ${linkedProject.name}`
+                        : "Link to project"}
                 </DropdownMenu.Label>
                 <DropdownMenu.Item
                   onSelect={() => onProjectChange(null)}
-                  disabled={linking || Boolean(pendingProjectRequest)}
+                  disabled={
+                    linking ||
+                    Boolean(pendingProjectRequest) ||
+                    Boolean(pendingEditRequest)
+                  }
                   className="flex cursor-pointer items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
                 >
                   {linkedProject ? "Unlink" : "Not linked"}
@@ -185,6 +198,7 @@ function StandaloneEmbedCard({
                     disabled={
                       linking ||
                       Boolean(pendingProjectRequest) ||
+                      Boolean(pendingEditRequest) ||
                       linkedProject?.id === project.id
                     }
                     className="flex cursor-pointer items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
@@ -198,7 +212,7 @@ function StandaloneEmbedCard({
                 <DropdownMenu.Separator className="my-1 h-px bg-border" />
                 <DropdownMenu.Item
                   onSelect={requestEdit}
-                  aria-disabled={!editingAllowed}
+                  disabled={!editingAllowed || Boolean(pendingEditRequest)}
                   title={
                     editingAllowed
                       ? "Edit embed"
@@ -305,8 +319,10 @@ function StandaloneEmbedCard({
       <StandaloneEmbedEditDialog
         embed={embed}
         open={editDialogOpen}
+        requiresModeration={linkedProject?.status === "published"}
         onOpenChange={setEditDialogOpen}
         onSaved={onEmbedUpdated}
+        onModerationSubmitted={onEditSubmitted}
       />
     </Card>
   )
@@ -317,6 +333,7 @@ function AccountEmbedsPage() {
   const { user, loading } = useAuth()
   const [profileSlug, setProfileSlug] = React.useState<string | null>(null)
   const [projects, setProjects] = React.useState<OwnedProject[]>([])
+  const [linkedProjects, setLinkedProjects] = React.useState<OwnedProject[]>([])
   const [projectEmbeds, setProjectEmbeds] = React.useState<
     ProjectEmbedWithProject[]
   >([])
@@ -326,6 +343,8 @@ function AccountEmbedsPage() {
   const [pendingProjectRequests, setPendingProjectRequests] = React.useState<
     PendingProjectRequest[]
   >([])
+  const [pendingEmbedEditRequests, setPendingEmbedEditRequests] =
+    React.useState<PendingEmbedEditRequest[]>([])
   const [fetching, setFetching] = React.useState(true)
   const [linkingId, setLinkingId] = React.useState<string | null>(null)
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
@@ -342,44 +361,56 @@ function AccountEmbedsPage() {
     let cancelled = false
 
     async function loadEmbeds() {
-      const [profileResult, projectsResult, standaloneResult, requestsResult] =
-        await Promise.all([
-          supabase
-            .from("profiles")
-            .select("slug")
-            .eq("id", user!.id)
-            .maybeSingle(),
-          supabase
-            .from("projects")
-            .select("id, name, slug, url, status")
-            .eq("owner_id", user!.id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("standalone_embeds")
-            .select(
-              "id, owner_id, slug, title, description, image_title, image_description, project_id, status, views_count, upvotes_count, edit_count, created_at"
-            )
-            .eq("owner_id", user!.id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("standalone_embed_project_requests")
-            .select("embed_id, project_id")
-            .eq("owner_id", user!.id)
-            .eq("status", "pending"),
-        ])
+      const [
+        profileResult,
+        projectsResult,
+        standaloneResult,
+        requestsResult,
+        editRequestsResult,
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("slug")
+          .eq("id", user!.id)
+          .maybeSingle(),
+        supabase
+          .from("projects")
+          .select("id, name, slug, url, status")
+          .eq("owner_id", user!.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("standalone_embeds")
+          .select(
+            "id, owner_id, slug, title, description, image_title, image_description, project_id, status, views_count, upvotes_count, edit_count, created_at"
+          )
+          .eq("owner_id", user!.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("standalone_embed_project_requests")
+          .select("embed_id, project_id")
+          .eq("owner_id", user!.id)
+          .eq("status", "pending"),
+        supabase
+          .from("standalone_embed_edit_requests")
+          .select("embed_id")
+          .eq("owner_id", user!.id)
+          .eq("status", "pending"),
+      ])
 
       if (cancelled) return
       if (
         profileResult.error ||
         projectsResult.error ||
         standaloneResult.error ||
-        requestsResult.error
+        requestsResult.error ||
+        editRequestsResult.error
       ) {
         setError(
           profileResult.error?.message ??
             projectsResult.error?.message ??
             standaloneResult.error?.message ??
             requestsResult.error?.message ??
+            editRequestsResult.error?.message ??
             "Could not load your embeds."
         )
         setFetching(false)
@@ -387,6 +418,28 @@ function AccountEmbedsPage() {
       }
 
       const ownedProjects = projectsResult.data ?? []
+      const linkedProjectIds = [
+        ...new Set(
+          (standaloneResult.data ?? []).flatMap((embed) =>
+            embed.project_id ? [embed.project_id] : []
+          )
+        ),
+      ]
+      const { data: linkedProjectRows, error: linkedProjectsError } =
+        linkedProjectIds.length
+          ? await supabase
+              .from("projects")
+              .select("id, name, slug, url, status")
+              .in("id", linkedProjectIds)
+          : { data: [], error: null }
+
+      if (cancelled) return
+      if (linkedProjectsError) {
+        setError(linkedProjectsError.message)
+        setFetching(false)
+        return
+      }
+
       const projectIds = ownedProjects.map((project) => project.id)
       let loadedProjectEmbeds: ProjectEmbedWithProject[] = []
 
@@ -417,9 +470,11 @@ function AccountEmbedsPage() {
 
       setProfileSlug(profileResult.data?.slug ?? null)
       setProjects(ownedProjects)
+      setLinkedProjects(linkedProjectRows ?? [])
       setProjectEmbeds(loadedProjectEmbeds)
       setStandaloneEmbeds(standaloneResult.data ?? [])
       setPendingProjectRequests(requestsResult.data ?? [])
+      setPendingEmbedEditRequests(editRequestsResult.data ?? [])
       setFetching(false)
     }
 
@@ -442,6 +497,12 @@ function AccountEmbedsPage() {
     projectId: string | null
   ) {
     if (embed.project_id === projectId) return
+    if (
+      pendingEmbedEditRequests.some((request) => request.embed_id === embed.id)
+    ) {
+      setError("This embed has an edit waiting for review.")
+      return
+    }
     if (
       pendingProjectRequests.some((request) => request.embed_id === embed.id)
     ) {
@@ -541,7 +602,9 @@ function AccountEmbedsPage() {
     setDeletingId(null)
   }
 
-  const projectsById = new Map(projects.map((project) => [project.id, project]))
+  const projectsById = new Map(
+    [...projects, ...linkedProjects].map((project) => [project.id, project])
+  )
   const linkedEmbeds = standaloneEmbeds.flatMap((embed) => {
     const project = embed.project_id
       ? projectsById.get(embed.project_id)
@@ -607,6 +670,9 @@ function AccountEmbedsPage() {
               pendingProjectRequest={pendingProjectRequests.find(
                 (request) => request.embed_id === embed.id
               )}
+              pendingEditRequest={pendingEmbedEditRequests.find(
+                (request) => request.embed_id === embed.id
+              )}
               linkedProject={
                 embed.project_id
                   ? projectsById.get(embed.project_id)
@@ -619,6 +685,13 @@ function AccountEmbedsPage() {
               }
               onDelete={() => void deleteEmbed(embed)}
               onEmbedUpdated={updateStandaloneEmbed}
+              onEditSubmitted={() => {
+                setPendingEmbedEditRequests((current) => [
+                  ...current,
+                  { embed_id: embed.id },
+                ])
+                setNotice("Edit sent for moderation.")
+              }}
             />
           ))
         )}

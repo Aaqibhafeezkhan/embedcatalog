@@ -30,6 +30,7 @@ const sections = [
     paragraphs: [
       "You must provide accurate information, keep your credentials secure, and promptly tell us if you believe your account has been compromised. You are responsible for activity carried out through your account.",
       "You must be legally capable of entering these Terms. If you use the service for an organization, you confirm that you have authority to bind it.",
+      "If you subscribe to the newsletter, you consent to receive occasional email updates about projects and embeds. You may withdraw your consent and request removal of your address at any time by contacting us.",
     ],
   },
   {

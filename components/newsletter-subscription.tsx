@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { Check, Loader2 } from "lucide-react"
 
 import { Button } from "components/ui/button"
@@ -61,8 +62,7 @@ export interface NewsletterSubscriptionProps {
   className?: string
 
   /**
-   * Optional callback invoked when the user submits a valid email.
-   * If omitted, a brief mock subscription is performed.
+   * Optional callback invoked instead of the built-in newsletter endpoint.
    */
   onSubscribe?: (email: string) => Promise<void> | void
 }
@@ -147,8 +147,15 @@ function NewsletterSubscription({
       if (onSubscribe) {
         await onSubscribe(trimmedEmail)
       } else {
-        // Fallback simulation when backend integration is pending
-        await new Promise((resolve) => setTimeout(resolve, 600))
+        const response = await fetch("/api/newsletter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: trimmedEmail }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Subscription failed. Please try again.")
+        }
       }
 
       setStatus("success")
@@ -216,6 +223,7 @@ function NewsletterSubscription({
             autoComplete="email"
             autoCapitalize="none"
             spellCheck={false}
+            maxLength={254}
             placeholder={placeholder}
             value={email}
             onChange={handleEmailChange}
@@ -272,12 +280,26 @@ function NewsletterSubscription({
       <div className={cn("flex flex-col gap-3", className)}>
         <div>
           <h3 className="text-sm font-medium">{resolvedTitle}</h3>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {resolvedDescription}
-          </p>
+          {resolvedDescription && (
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {resolvedDescription}
+            </p>
+          )}
         </div>
 
         {status === "success" ? renderSuccessState() : renderForm()}
+
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          By subscribing, you confirm that you have read our{" "}
+          <Link
+            href="/privacy"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Privacy Notice
+          </Link>{" "}
+          and consent to receive newsletter updates. You can withdraw your
+          consent and request removal at any time.
+        </p>
 
         {renderSocialProof()}
       </div>

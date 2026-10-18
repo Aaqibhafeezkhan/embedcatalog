@@ -80,39 +80,8 @@ function Footer() {
   return (
     <footer className="border-t bg-background">
       <div className="site-container py-12">
-        <div className="flex flex-col justify-between gap-10 lg:flex-row lg:items-start">
-          <div className="flex flex-col gap-8 sm:flex-row sm:gap-16">
-            <div>
-              <Link href="/" className="flex items-center font-semibold">
-                <span>{siteConfig.name}</span>
-              </Link>
-              <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-                {siteConfig.slogan}
-              </p>
-            </div>
-
-            <nav>
-              <h3 className="text-sm font-medium">Pages</h3>
-              <ul className="mt-3 space-y-2">
-                {navLinks.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          </div>
-
-          <div className="w-full max-w-sm">
-            <NewsletterSubscription variant="footer" />
-          </div>
-        <div className="grid gap-10 border-b pb-10 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,1.5fr)_repeat(3,minmax(0,1fr))]">
-          <div className="max-w-sm">
+        <div className="grid gap-10 border-b pb-10 sm:grid-cols-2 lg:grid-cols-[minmax(18rem,1.6fr)_repeat(3,minmax(0,1fr))]">
+          <div className="max-w-md">
             <Link href="/" className="flex items-center font-semibold">
               <span>{siteConfig.name}</span>
             </Link>
@@ -137,6 +106,12 @@ function Footer() {
                 )
               })}
             </div>
+            <NewsletterSubscription
+              variant="footer"
+              description={null}
+              subscriberCount={false}
+              className="mt-5 max-w-sm"
+            />
           </div>
 
           {footerGroups.map((group) => (

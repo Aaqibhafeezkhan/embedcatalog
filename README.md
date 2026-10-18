@@ -105,11 +105,11 @@ New submissions land in a moderation queue. Admins can approve, reject, mark a p
 3. Send the project for review from your account, with an optional note for the moderators.
 4. Once approved, your project is published, gets its own page, and it's project embeds become available to copy.
 5. Create custom embeds from your account. Set an embed name, image title, description, and URL slug; custom embeds are published immediately on your profile and the embeds page.
-![EmbedCatalog create enmbed](public/images/photo4.png)
-![EmbedCatalog embed modal](public/images/photo5.png)  
+   ![EmbedCatalog create enmbed](public/images/photo4.png)
+   ![EmbedCatalog embed modal](public/images/photo5.png)
 6. To feature a custom embed on a published project, request to link it to the project. The link is reviewed before it goes live.
 7. Keep an eye on embed views and upvotes as people discover and use your embeds.
-![EmbedCatalog profile](public/images/photo6.png)
+   ![EmbedCatalog profile](public/images/photo6.png)
 
 ## What projects are suitable?
 
@@ -197,13 +197,13 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 
 ### Environment variables
 
-| Variable                        | Used by             | Purpose                                                     |
-| ------------------------------- | ------------------- | ----------------------------------------------------------- |
-| `NEXT_PUBLIC_SITE_URL`          | App                 | Canonical site URL (defaults to `https://embedcatalog.com`) |
-| `NEXT_PUBLIC_SUPABASE_URL`      | App, image routes   | Supabase project URL                                        |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | App, image routes   | Public client for auth and data access                      |
-| `SUPABASE_SERVICE_ROLE_KEY`     | `sync-github-stats` | Server-side updates to GitHub stats                         |
-| `GITHUB_TOKEN`                  | `sync-github-stats` | Reads stars/forks/contributors from GitHub API              |
+| Variable                        | Used by                             | Purpose                                                       |
+| ------------------------------- | ----------------------------------- | ------------------------------------------------------------- |
+| `NEXT_PUBLIC_SITE_URL`          | App                                 | Canonical site URL (defaults to `https://embedcatalog.com`)   |
+| `NEXT_PUBLIC_SUPABASE_URL`      | App, image routes                   | Supabase project URL                                          |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | App, image routes                   | Public client for auth and data access                        |
+| `SUPABASE_SERVICE_ROLE_KEY`     | `sync-github-stats`, newsletter API | Server-side GitHub stats updates and newsletter subscriptions |
+| `GITHUB_TOKEN`                  | `sync-github-stats`                 | Reads stars/forks/contributors from GitHub API                |
 
 ### Available scripts
 

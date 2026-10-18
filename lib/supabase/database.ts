@@ -37,6 +37,20 @@ export type Database = {
         }
         Relationships: []
       }
+      newsletter_subscriptions: {
+        Row: {
+          id: string
+          email: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          email: string
+          created_at?: string
+        }
+        Update: never
+        Relationships: []
+      }
       user_follows: {
         Row: {
           follower_id: string
@@ -342,6 +356,14 @@ export type Database = {
     }
     Views: Record<string, never>
     Functions: {
+      consume_newsletter_rate_limit: {
+        Args: {
+          p_key_hash: string
+          p_max_attempts: number
+          p_window_seconds: number
+        }
+        Returns: boolean
+      }
       approve_project_edit_request: {
         Args: { request_id: string }
         Returns: undefined

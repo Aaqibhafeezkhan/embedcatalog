@@ -67,6 +67,10 @@ export default function PrivacyPage() {
               status, and creation dates.
             </li>
             <li>
+              The email address and subscription date when you sign up for the
+              newsletter.
+            </li>
+            <li>
               Activity information, such as your upvotes and bookmarks of
               projects and embeds, and aggregate counters of project
               impressions, embed page views, and upvotes.
@@ -107,6 +111,10 @@ export default function PrivacyPage() {
               and embeds.
             </li>
             <li>
+              To maintain newsletter subscriptions and send updates about
+              projects and embeds to subscribers.
+            </li>
+            <li>
               To respond to requests, administer paid submissions, prevent
               abuse, and enforce our Terms.
             </li>
@@ -128,9 +136,10 @@ export default function PrivacyPage() {
             Where the GDPR or a similar law applies, we rely on contract or
             steps requested before contract for accounts and submissions,
             legitimate interests for security and service administration,
-            consent for non-essential analytics, and legal obligations where
-            applicable. You may withdraw consent at any time; withdrawal does
-            not affect earlier processing.
+            consent for newsletter subscriptions and non-essential analytics,
+            and legal obligations where applicable. You may withdraw consent at
+            any time by contacting us; withdrawal does not affect earlier
+            processing.
           </p>
         </section>
         <section>
@@ -139,14 +148,14 @@ export default function PrivacyPage() {
           </h2>
           <p className="mt-2">
             We use Supabase for authentication, database hosting, and related
-            infrastructure. Supabase may process account and project data on our
-            behalf. We may use Google Analytics for measurement if it is
-            enabled. Google and Supabase process data under their own terms and
-            privacy documentation. We use Resend as our SMTP provider to send
-            authentication emails (such as sign-in links); Resend receives your
-            email address and the message content for this purpose. We may also
-            use hosting, email, payment, security, and legal providers as needed
-            to operate the service.
+            infrastructure. Supabase may process account, project, and
+            newsletter subscription data on our behalf. We may use Google
+            Analytics for measurement if it is enabled. Google and Supabase
+            process data under their own terms and privacy documentation. We use
+            Resend as our SMTP provider to send authentication emails (such as
+            sign-in links); Resend receives your email address and the message
+            content for this purpose. We may also use hosting, email, payment,
+            security, and legal providers as needed to operate the service.
           </p>
           <p className="mt-2">
             We use hCaptcha, provided by Intuition Machines, Inc., to help
@@ -192,8 +201,10 @@ export default function PrivacyPage() {
             reasonable period afterward where needed for security, legal,
             accounting, dispute, or backup purposes. Published content may
             remain in backups or third-party caches for a limited period after
-            removal. We use reasonable technical and organizational measures,
-            but no internet service can guarantee absolute security.
+            removal. Newsletter email addresses are retained while subscribed
+            and deleted when you request removal. We use reasonable technical
+            and organizational measures, but no internet service can guarantee
+            absolute security.
           </p>
         </section>
         <section>

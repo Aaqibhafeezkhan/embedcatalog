@@ -61,6 +61,7 @@ export type ProjectGithubStatsData = {
 
 export type Project = {
   id: string
+  ownerId?: string | null
   slug: string
   name: string
   description: string

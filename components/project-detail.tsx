@@ -144,6 +144,8 @@ function ProjectDetail({
           <ImageCarousel images={project.images} alt={project.name} />
         </div>
         <ProjectEmbeds
+          projectId={project.id}
+          projectOwnerId={project.ownerId}
           slug={project.slug}
           projectName={project.name}
           externalUrl={project.url}
@@ -161,9 +163,7 @@ function ProjectDetail({
           <div className="flex flex-wrap gap-1.5">
             {project.tags.map((tag) => (
               <Embed key={tag} variant="outline" asChild>
-                <Link href={`/?q=${encodeURIComponent(tag)}`}>
-                  {tag}
-                </Link>
+                <Link href={`/?q=${encodeURIComponent(tag)}`}>{tag}</Link>
               </Embed>
             ))}
           </div>

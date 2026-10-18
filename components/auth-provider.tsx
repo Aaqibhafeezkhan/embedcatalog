@@ -34,7 +34,9 @@ function clearAuthCallbackUrl() {
 function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = React.useState<Session | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [isAdmin, setIsAdmin] = React.useState(false)
+  const [adminUserId, setAdminUserId] = React.useState<string | null>(null)
+  const userId = session?.user.id
+  const isAdmin = Boolean(userId && adminUserId === userId)
 
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -55,28 +57,20 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   React.useEffect(() => {
-    const userId = session?.user.id
-
-    if (!userId) {
-      setIsAdmin(false)
-      return
-    }
+    if (!userId) return
 
     let cancelled = false
 
-    supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single()
-      .then(({ data }) => {
-        if (!cancelled) setIsAdmin(data?.role === "admin")
-      })
+    supabase.rpc("current_user_profile_role").then(({ data }) => {
+      if (!cancelled) {
+        setAdminUserId(data === "admin" ? userId : null)
+      }
+    })
 
     return () => {
       cancelled = true
     }
-  }, [session])
+  }, [session, userId])
 
   const signOut = React.useCallback(async () => {
     await supabase.auth.signOut()

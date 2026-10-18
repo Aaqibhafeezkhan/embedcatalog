@@ -86,6 +86,10 @@ const sections: Section[] = [
         type: "p",
         text: "The website owner may correct grammar, formatting, or layout without changing the overall meaning of the submitted information. We may reject or remove a submission that is unlawful, misleading, infringing, unsafe, or unsuitable for the catalog.",
       },
+      {
+        type: "p",
+        text: "Custom embeds are submitted separately from projects. You create an embed (title and description), it is saved as a draft, and you send it for review from the submission page; no comment is required. Embeds are free, reviewed by the website owner, and become public on your profile and the embeds page only once published. A rejected embed can be edited and submitted again.",
+      },
     ],
   },
   {
@@ -112,7 +116,7 @@ const sections: Section[] = [
       {
         type: "ul",
         items: [
-          "you are the owner of the project or have permission to submit it;",
+          "you are the owner of the project or embed content, or have permission to submit it;",
           "the information you provide is accurate;",
           "your project does not violate any applicable laws or the rights of third parties.",
         ],
@@ -141,11 +145,11 @@ const sections: Section[] = [
     blocks: [
       {
         type: "p",
-        text: "By submitting a project, you grant EmbedCatalog a worldwide, non-exclusive, royalty-free license to host, reproduce, adapt for formatting, publish, display, distribute, and promote the submitted materials in connection with the catalog, embeds, articles, social posts, and related channels. You retain ownership of your project and materials.",
+        text: "By submitting a project or custom embed, you grant EmbedCatalog a worldwide, non-exclusive, royalty-free license to host, reproduce, adapt for formatting, publish, display, distribute, and promote the submitted materials in connection with the catalog, embeds, articles, social posts, and related channels. You retain ownership of your project and materials.",
       },
       {
         type: "p",
-        text: "Project listings are public. We process account and submission information as described in the Privacy Notice. Do not submit confidential information or personal data that should not be published.",
+        text: "Project listings, published embeds, your public profile, and upvote and view totals are public. We process account and submission information as described in the Privacy Notice. Do not submit confidential information or personal data that should not be published.",
       },
     ],
   },
@@ -165,12 +169,13 @@ export default function SubmissionTermsPage() {
     <main className="site-container py-10">
       <h1 className="text-2xl font-semibold">Project Submission Terms</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Last updated: September 19, 2026
+        Last updated: October 18, 2026
       </p>
 
       <p className="mt-6 leading-relaxed text-muted-foreground">
-        By submitting a project, you agree to the following terms. Projects can
-        be added for free or under the paid Premium plan.
+        By submitting a project or custom embed, you agree to the following
+        terms. Projects can be added for free or under the paid Premium plan;
+        custom embeds are free.
       </p>
 
       <div className="mt-8 flex flex-col gap-8">
@@ -191,6 +196,13 @@ export default function SubmissionTermsPage() {
                 ) : (
                   <p key={index}>{block.text}</p>
                 )
+              )}
+              {section.title === "3. Submission Process" && (
+                <p>
+                  Some platform interactions may be protected with hCaptcha to
+                  help prevent automated abuse. For details about information
+                  processed during a CAPTCHA check, see our Privacy Notice.
+                </p>
               )}
               {section.title === "8. Contact and changes" && (
                 <p>

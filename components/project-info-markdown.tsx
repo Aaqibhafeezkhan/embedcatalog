@@ -15,11 +15,17 @@ function extractText(node: React.ReactNode): string {
   return ""
 }
 
-function ProjectInfoMarkdown({ content }: { content?: string }) {
+function ProjectInfoMarkdown({
+  content,
+  className = "mt-8",
+}: {
+  content?: string
+  className?: string
+}) {
   if (!content?.trim()) return null
 
   return (
-    <div className="project-markdown mt-8 min-w-0">
+    <div className={`project-markdown min-w-0 ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

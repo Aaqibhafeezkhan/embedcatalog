@@ -33,7 +33,8 @@ export default function SubmitPage() {
             Submit a project
           </h1>
           <p className="mt-3 max-w-md text-muted-foreground">
-            Create your project and send it for review. Listing is free.
+            Create your project or embeds and send them for review. Listing is
+            free.
           </p>
         </div>
 

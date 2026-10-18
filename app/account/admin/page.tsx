@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "components/ui/card"
+import type { Database } from "lib/supabase/database"
 import { supabase } from "lib/supabase/client"
 
 type ProjectStatus = "draft" | "pending" | "published" | "rejected"
@@ -44,6 +45,24 @@ type ProjectEditRequest = {
   tags: string[] | null
   created_at: string
 }
+type EmbedProjectRequest =
+  Database["public"]["Tables"]["standalone_embed_project_requests"]["Row"] & {
+    embed: Pick<
+      Database["public"]["Tables"]["standalone_embeds"]["Row"],
+      "slug" | "title" | "description"
+    >
+    profileSlug: string
+    projectName: string | null
+  }
+type StandaloneEmbedEditRequest =
+  Database["public"]["Tables"]["standalone_embed_edit_requests"]["Row"] & {
+    embed: Pick<
+      Database["public"]["Tables"]["standalone_embeds"]["Row"],
+      "slug" | "title" | "project_id"
+    >
+    profileSlug: string
+    projectName: string | null
+  }
 
 function AdminPage() {
   const router = useRouter()
@@ -55,6 +74,14 @@ function AdminPage() {
   const [pendingEdits, setPendingEdits] = React.useState<ProjectEditRequest[]>(
     []
   )
+  const [pendingEmbedProjectRequests, setPendingEmbedProjectRequests] =
+    React.useState<EmbedProjectRequest[]>([])
+  const [embedProjectRequestsLoading, setEmbedProjectRequestsLoading] =
+    React.useState(true)
+  const [pendingEmbedEditRequests, setPendingEmbedEditRequests] =
+    React.useState<StandaloneEmbedEditRequest[]>([])
+  const [embedEditRequestsLoading, setEmbedEditRequestsLoading] =
+    React.useState(true)
 
   React.useEffect(() => {
     if (!loading && (!user || !isAdmin)) router.replace("/account")
@@ -81,6 +108,202 @@ function AdminPage() {
         setProjectsLoading(false)
       })
 
+    return () => {
+      cancelled = true
+    }
+  }, [user, isAdmin])
+
+  React.useEffect(() => {
+    if (!user || !isAdmin) return
+
+    let cancelled = false
+
+    async function loadPendingEmbedEditRequests() {
+      const { data: requests, error: requestsError } = await supabase
+        .from("standalone_embed_edit_requests")
+        .select(
+          "id, embed_id, owner_id, slug, title, image_title, image_description, status, created_at, reviewed_at"
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
+
+      if (cancelled) return
+      if (requestsError) {
+        setProjectsError(requestsError.message)
+        setEmbedEditRequestsLoading(false)
+        return
+      }
+      if (!requests?.length) {
+        setPendingEmbedEditRequests([])
+        setEmbedEditRequestsLoading(false)
+        return
+      }
+
+      const embedIds = [...new Set(requests.map((request) => request.embed_id))]
+      const ownerIds = [...new Set(requests.map((request) => request.owner_id))]
+      const [embedsResult, profilesResult] = await Promise.all([
+        supabase
+          .from("standalone_embeds")
+          .select("id, slug, title, project_id")
+          .in("id", embedIds),
+        supabase.rpc("get_public_profiles", { p_profile_ids: ownerIds }),
+      ])
+
+      if (cancelled) return
+      if (embedsResult.error || profilesResult.error) {
+        setProjectsError(
+          embedsResult.error?.message ??
+            profilesResult.error?.message ??
+            "Could not load embed edit requests."
+        )
+        setEmbedEditRequestsLoading(false)
+        return
+      }
+
+      const embedsById = new Map(
+        (embedsResult.data ?? []).map((embed) => [embed.id, embed])
+      )
+      const projectIds = [
+        ...new Set(
+          (embedsResult.data ?? []).flatMap((embed) =>
+            embed.project_id ? [embed.project_id] : []
+          )
+        ),
+      ]
+      const { data: projects, error: projectsError } = projectIds.length
+        ? await supabase
+            .from("projects")
+            .select("id, name")
+            .in("id", projectIds)
+        : { data: [], error: null }
+
+      if (cancelled) return
+      if (projectsError) {
+        setProjectsError(projectsError.message)
+        setEmbedEditRequestsLoading(false)
+        return
+      }
+
+      const profilesById = new Map(
+        (profilesResult.data ?? []).map((profile) => [profile.id, profile.slug])
+      )
+      const projectsById = new Map(
+        (projects ?? []).map((project) => [project.id, project.name])
+      )
+      setPendingEmbedEditRequests(
+        requests.flatMap((request) => {
+          const embed = embedsById.get(request.embed_id)
+          if (!embed) return []
+          return [
+            {
+              ...request,
+              embed,
+              profileSlug: profilesById.get(request.owner_id) ?? "",
+              projectName: embed.project_id
+                ? (projectsById.get(embed.project_id) ?? null)
+                : null,
+            },
+          ]
+        })
+      )
+      setEmbedEditRequestsLoading(false)
+    }
+
+    void loadPendingEmbedEditRequests()
+    return () => {
+      cancelled = true
+    }
+  }, [user, isAdmin])
+
+  React.useEffect(() => {
+    if (!user || !isAdmin) return
+
+    let cancelled = false
+
+    async function loadPendingEmbedProjectRequests() {
+      const { data: requests, error: requestsError } = await supabase
+        .from("standalone_embed_project_requests")
+        .select(
+          "id, embed_id, project_id, owner_id, status, created_at, reviewed_at"
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
+
+      if (cancelled) return
+
+      if (requestsError) {
+        setProjectsError(requestsError.message)
+        setEmbedProjectRequestsLoading(false)
+        return
+      }
+
+      if (!requests?.length) {
+        setPendingEmbedProjectRequests([])
+        setEmbedProjectRequestsLoading(false)
+        return
+      }
+
+      const embedIds = [...new Set(requests.map((request) => request.embed_id))]
+      const projectIds = [
+        ...new Set(
+          requests.flatMap((request) =>
+            request.project_id ? [request.project_id] : []
+          )
+        ),
+      ]
+      const ownerIds = [...new Set(requests.map((request) => request.owner_id))]
+      const [embedsResult, projectsResult, profilesResult] = await Promise.all([
+        supabase
+          .from("standalone_embeds")
+          .select("id, slug, title, description")
+          .in("id", embedIds),
+        projectIds.length
+          ? supabase.from("projects").select("id, name").in("id", projectIds)
+          : Promise.resolve({ data: [], error: null }),
+        supabase.rpc("get_public_profiles", { p_profile_ids: ownerIds }),
+      ])
+
+      if (cancelled) return
+      if (embedsResult.error || projectsResult.error || profilesResult.error) {
+        setProjectsError(
+          embedsResult.error?.message ??
+            projectsResult.error?.message ??
+            profilesResult.error?.message ??
+            "Could not load embed project requests."
+        )
+        setEmbedProjectRequestsLoading(false)
+        return
+      }
+
+      const embedsById = new Map(
+        (embedsResult.data ?? []).map((embed) => [embed.id, embed])
+      )
+      const projectsById = new Map(
+        (projectsResult.data ?? []).map((project) => [project.id, project.name])
+      )
+      const profileSlugs = new Map(
+        (profilesResult.data ?? []).map((profile) => [profile.id, profile.slug])
+      )
+      setPendingEmbedProjectRequests(
+        requests.flatMap((request) => {
+          const embed = embedsById.get(request.embed_id)
+          if (!embed) return []
+          return [
+            {
+              ...request,
+              embed,
+              profileSlug: profileSlugs.get(request.owner_id) ?? "",
+              projectName: request.project_id
+                ? (projectsById.get(request.project_id) ?? null)
+                : null,
+            },
+          ]
+        })
+      )
+      setEmbedProjectRequestsLoading(false)
+    }
+
+    void loadPendingEmbedProjectRequests()
     return () => {
       cancelled = true
     }
@@ -201,6 +424,47 @@ function AdminPage() {
     }
 
     setPendingEdits((current) =>
+      current.filter((request) => request.id !== requestId)
+    )
+  }
+
+  async function reviewEmbedProjectRequest(
+    requestId: string,
+    approve: boolean
+  ) {
+    setActioningId(requestId)
+    setProjectsError(null)
+    const { error } = await supabase.rpc(
+      "review_standalone_embed_project_request",
+      { p_request_id: requestId, p_approve: approve }
+    )
+    setActioningId(null)
+
+    if (error) {
+      setProjectsError(error.message)
+      return
+    }
+
+    setPendingEmbedProjectRequests((current) =>
+      current.filter((request) => request.id !== requestId)
+    )
+  }
+
+  async function reviewEmbedEditRequest(requestId: string, approve: boolean) {
+    setActioningId(requestId)
+    setProjectsError(null)
+    const { error } = await supabase.rpc(
+      "review_standalone_embed_edit_request",
+      { p_request_id: requestId, p_approve: approve }
+    )
+    setActioningId(null)
+
+    if (error) {
+      setProjectsError(error.message)
+      return
+    }
+
+    setPendingEmbedEditRequests((current) =>
       current.filter((request) => request.id !== requestId)
     )
   }
@@ -338,6 +602,83 @@ function AdminPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">
+                Project embed edits ({pendingEmbedEditRequests.length})
+              </CardTitle>
+              <CardDescription>
+                Review changes to custom embeds currently published on projects.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {embedEditRequestsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Loading embed edits
+                </div>
+              ) : pendingEmbedEditRequests.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No project embed edits waiting for review.
+                </p>
+              ) : (
+                pendingEmbedEditRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="flex flex-col gap-4 rounded-md border p-4 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {request.embed.title} -&gt; {request.title}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {request.projectName ?? "Project"} · @
+                        {request.profileSlug}
+                      </p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        URL: {request.embed.slug} -&gt; {request.slug}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Image title: {request.image_title || "(empty)"}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Description: {request.image_description || "(empty)"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          void reviewEmbedEditRequest(request.id, true)
+                        }
+                        disabled={actioningId === request.id}
+                      >
+                        {actioningId === request.id ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Check className="size-4" />
+                        )}
+                        Approve changes
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() =>
+                          void reviewEmbedEditRequest(request.id, false)
+                        }
+                        disabled={actioningId === request.id}
+                      >
+                        <X className="size-4" />
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">
                 Pending changes ({pendingEdits.length})
               </CardTitle>
               <CardDescription>
@@ -398,6 +739,82 @@ function AdminPage() {
                           Reject
                         </Button>
                       </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">
+                Embed project applications ({pendingEmbedProjectRequests.length}
+                )
+              </CardTitle>
+              <CardDescription>
+                Review requests to attach published custom embeds to projects.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {embedProjectRequestsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Loading applications
+                </div>
+              ) : pendingEmbedProjectRequests.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No embed project applications waiting for review.
+                </p>
+              ) : (
+                pendingEmbedProjectRequests.map((request) => (
+                  <div
+                    key={request.id}
+                    className="flex flex-col gap-4 rounded-md border p-4 sm:flex-row sm:items-start sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">{request.embed.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        /user/{request.profileSlug}/embeds/{request.embed.slug}
+                        .png
+                      </p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {request.embed.description ||
+                          "No description provided."}
+                      </p>
+                      <p className="mt-2 text-sm">
+                        {request.project_id
+                          ? `Apply to ${request.projectName ?? "unknown project"}`
+                          : "Remove the current project assignment"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          void reviewEmbedProjectRequest(request.id, true)
+                        }
+                        disabled={actioningId === request.id}
+                      >
+                        {actioningId === request.id ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Check className="size-4" />
+                        )}
+                        Approve application
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() =>
+                          void reviewEmbedProjectRequest(request.id, false)
+                        }
+                        disabled={actioningId === request.id}
+                      >
+                        <X className="size-4" />
+                        Reject
+                      </Button>
                     </div>
                   </div>
                 ))

@@ -2,8 +2,9 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { Loader2 } from "lucide-react"
+import { Check, Copy, Loader2 } from "lucide-react"
 
+import { siteConfig } from "lib/site"
 import {
   getContributors,
   getOpenIssues,
@@ -16,6 +17,7 @@ function HacktoberfestCommunity() {
   const [contributors, setContributors] = React.useState<GithubContributor[]>(
     []
   )
+  const [copiedLogin, setCopiedLogin] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
@@ -34,6 +36,19 @@ function HacktoberfestCommunity() {
       cancelled = true
     }
   }, [])
+
+  async function copyEmbedCode(contributor: GithubContributor) {
+    const imageUrl = `${siteConfig.url}/embed/hacktoberfest-2026/${contributor.login}.png`
+    const code = `<a href="${contributor.url}" target="_blank" rel="noreferrer noopener"><img src="${imageUrl}" alt="Hacktoberfest 2026 contributor badge for ${contributor.login}" width="320" height="84" /></a>`
+
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopiedLogin(contributor.login)
+      setTimeout(() => setCopiedLogin(null), 2000)
+    } catch {
+      // Clipboard API unavailable.
+    }
+  }
 
   if (loading) {
     return (
@@ -129,6 +144,21 @@ function HacktoberfestCommunity() {
                       className="h-auto w-full max-w-64"
                     />
                   </a>
+                  <button
+                    type="button"
+                    onClick={() => void copyEmbedCode(contributor)}
+                    aria-label={`Copy ${contributor.login}'s Hacktoberfest embed code`}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {copiedLogin === contributor.login ? (
+                      <Check className="size-3.5" />
+                    ) : (
+                      <Copy className="size-3.5" />
+                    )}
+                    {copiedLogin === contributor.login
+                      ? "Copied"
+                      : "Copy embed code"}
+                  </button>
                 </div>
               </li>
             ))}

@@ -163,6 +163,31 @@ function getPublicCustomEmbedSrc(
   return `${siteUrl}/embed/${slug}/${getCustomEmbedFileName(shortId, theme)}`
 }
 
+function getPublicStandaloneEmbedSrc(
+  siteUrl: string,
+  profileSlug: string,
+  embedSlug: string,
+  theme: EmbedTheme
+) {
+  const suffix = theme === "dark" ? ".theme-dark" : ""
+  return `${siteUrl}/user/${encodeURIComponent(profileSlug)}/embeds/${encodeURIComponent(embedSlug)}${suffix}.png`
+}
+
+// Custom embeds linked to a published project live under the project's URL.
+function getLinkedEmbedPagePath(projectSlug: string, embedSlug: string) {
+  return `/projects/${encodeURIComponent(projectSlug)}/${encodeURIComponent(embedSlug)}`
+}
+
+function getPublicLinkedEmbedSrc(
+  siteUrl: string,
+  projectSlug: string,
+  embedSlug: string,
+  theme: EmbedTheme
+) {
+  const suffix = theme === "dark" ? ".theme-dark" : ""
+  return `${siteUrl}${getLinkedEmbedPagePath(projectSlug, embedSlug)}${suffix}.png`
+}
+
 export {
   embedKinds,
   embedThemes,
@@ -173,8 +198,11 @@ export {
   getEmbedLines,
   getEmbedSize,
   getEmbedTheme,
+  getLinkedEmbedPagePath,
   getPublicCustomEmbedSrc,
   getPublicEmbedSrc,
+  getPublicLinkedEmbedSrc,
+  getPublicStandaloneEmbedSrc,
   parseEmbedKind,
   themes,
 }

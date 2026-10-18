@@ -2,9 +2,11 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Check, ChevronLeft, Copy, Loader2, Moon, Sun } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ChevronLeft, Loader2 } from "lucide-react"
 
 import { useAuth } from "components/auth-provider"
+import { useNotification } from "components/notification-provider"
 import { Button } from "components/ui/button"
 import {
   Card,
@@ -13,44 +15,85 @@ import {
   CardHeader,
   CardTitle,
 } from "components/ui/card"
-import { Input } from "components/ui/input"
-import { Label } from "components/ui/label"
-import { Textarea } from "components/ui/textarea"
-import { useRouter } from "next/navigation"
+import { ProjectEmbedEditor } from "components/project-embed-editor"
+import type { CreateProjectEmbed } from "app/account/create-project/draft-context"
+import { supabase } from "lib/supabase/client"
+import { bindGithubRepo } from "lib/embed-variables"
+import { isValidEmbedSlug, slugifyEmbed } from "lib/standalone-embed-slug"
 
-type Theme = "light" | "dark"
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>'"]/g, (character) => {
-    const entities: Record<string, string> = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      "'": "&#39;",
-      '"': "&quot;",
-    }
-    return entities[character]
-  })
-}
+const freeEmbedLimit = 3
+const premiumEmbedLimit = 15
 
 function CreateEmbedPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
-  const [title, setTitle] = React.useState("Built with EmbedCatalog")
-  const [description, setDescription] = React.useState(
-    "A project worth checking out."
-  )
-  const [url, setUrl] = React.useState("https://example.com")
-  const [theme, setTheme] = React.useState<Theme>("light")
-  const [copied, setCopied] = React.useState(false)
+  const { notify } = useNotification()
+  const [profileSlug, setProfileSlug] = React.useState<string | null>(null)
+  const [embeds, setEmbeds] = React.useState<CreateProjectEmbed[]>([])
+  const [existingEmbedCount, setExistingEmbedCount] = React.useState(0)
+  const [isPremium, setIsPremium] = React.useState(false)
+  const [fetchingProfile, setFetchingProfile] = React.useState(true)
+  const [saving, setSaving] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [notice, setNotice] = React.useState<string | null>(null)
+  const embedLimit = isPremium ? premiumEmbedLimit : freeEmbedLimit
+  const remainingEmbeds = Math.max(0, embedLimit - existingEmbedCount)
 
   React.useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/login")
-    }
+    if (!loading && !user) router.replace("/login")
   }, [loading, router, user])
 
-  if (loading || !user) {
+  React.useEffect(() => {
+    if (!user) return
+
+    let cancelled = false
+
+    async function loadProfile() {
+      const [profileResult, projectsResult, embedsResult] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("slug")
+          .eq("id", user!.id)
+          .maybeSingle(),
+        supabase.from("projects").select("is_premium").eq("owner_id", user!.id),
+        supabase
+          .from("standalone_embeds")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_id", user!.id),
+      ])
+
+      if (cancelled) return
+      if (
+        profileResult.error ||
+        !profileResult.data ||
+        projectsResult.error ||
+        embedsResult.error
+      ) {
+        setError(
+          profileResult.error?.message ??
+            projectsResult.error?.message ??
+            embedsResult.error?.message ??
+            "Could not load your account."
+        )
+      } else {
+        const premium = projectsResult.data.some(
+          (project) => project.is_premium
+        )
+        const count = embedsResult.count ?? 0
+        setProfileSlug(profileResult.data.slug)
+        setIsPremium(premium)
+        setExistingEmbedCount(count)
+      }
+      setFetchingProfile(false)
+    }
+
+    void loadProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  if (loading || !user || fetchingProfile) {
     return (
       <div className="flex min-h-[70svh] items-center justify-center">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -58,26 +101,101 @@ function CreateEmbedPage() {
     )
   }
 
-  const colors =
-    theme === "dark"
-      ? {
-          background: "#171717",
-          border: "#404040",
-          text: "#fafafa",
-          muted: "#a3a3a3",
-        }
-      : {
-          background: "#ffffff",
-          border: "#d4d4d4",
-          text: "#171717",
-          muted: "#737373",
-        }
-  const embedHtml = `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer noopener" style="display:inline-block;color:${colors.text};text-decoration:none"><span style="display:block;max-width:320px;border:1px solid ${colors.border};border-radius:4px;background:${colors.background};padding:14px 16px;font-family:Arial,sans-serif"><strong style="display:block;font-size:14px;line-height:20px">${escapeHtml(title)}</strong><span style="display:block;margin-top:4px;color:${colors.muted};font-size:12px;line-height:18px">${escapeHtml(description)}</span></span></a>`
+  async function submitEmbeds() {
+    if (!user || !profileSlug) return
+    if (embeds.length === 0) {
+      setError("Add at least one embed.")
+      return
+    }
+    if (embeds.some((embed) => !embed.name?.trim())) {
+      setError("Enter a name for each embed.")
+      return
+    }
+    const slugs = embeds.map((embed) =>
+      slugifyEmbed(embed.slug?.trim() || embed.name || "")
+    )
+    if (slugs.some((slug) => !isValidEmbedSlug(slug))) {
+      setError("Use lowercase letters, numbers, and hyphens for embed URLs.")
+      return
+    }
+    if (new Set(slugs).size !== slugs.length) {
+      setError("Each embed must have a different embed URL.")
+      return
+    }
 
-  async function copyEmbed() {
-    await navigator.clipboard.writeText(embedHtml)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 2000)
+    setSaving(true)
+    const [projectsResult, embedsResult] = await Promise.all([
+      supabase.from("projects").select("is_premium").eq("owner_id", user.id),
+      supabase
+        .from("standalone_embeds")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", user.id),
+    ])
+
+    if (projectsResult.error || embedsResult.error) {
+      setError(
+        projectsResult.error?.message ??
+          embedsResult.error?.message ??
+          "Could not verify your embed limit."
+      )
+      setSaving(false)
+      return
+    }
+
+    const premium = projectsResult.data.some((project) => project.is_premium)
+    const limit = premium ? premiumEmbedLimit : freeEmbedLimit
+    const count = embedsResult.count ?? 0
+    setIsPremium(premium)
+    setExistingEmbedCount(count)
+    if (count + embeds.length > limit) {
+      setError(
+        `You can create up to ${limit} custom embeds. You already have ${count}.`
+      )
+      setSaving(false)
+      return
+    }
+
+    setError(null)
+    setNotice(null)
+
+    const rows = embeds.map((embed) => ({
+      owner_id: user.id,
+      slug: slugifyEmbed(embed.slug?.trim() || embed.name || ""),
+      title: embed.name!.trim(),
+      image_title: bindGithubRepo(embed.title.trim(), embed.githubRepo),
+      image_description: bindGithubRepo(
+        embed.description.trim(),
+        embed.githubRepo
+      ),
+      status: "approved" as const,
+    }))
+
+    const { data, error: insertError } = await supabase
+      .from("standalone_embeds")
+      .insert(rows)
+      .select(
+        "id, owner_id, slug, title, description, project_id, status, views_count, upvotes_count, created_at"
+      )
+
+    setSaving(false)
+    if (insertError?.code === "P0001") {
+      notify(insertError.message)
+      return
+    }
+    if (insertError || !data) {
+      setError(
+        insertError?.code === "23505"
+          ? "An embed with this embed URL already exists in your account."
+          : (insertError?.message ?? "Could not create the embeds.")
+      )
+      return
+    }
+
+    setExistingEmbedCount(count + data.length)
+    setEmbeds([])
+    setNotice(
+      `${data.length} embed${data.length === 1 ? "" : "s"} created and published.`
+    )
   }
 
   return (
@@ -91,118 +209,56 @@ function CreateEmbedPage() {
         </Button>
         <h1 className="mt-4 text-2xl font-semibold">Create embed</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Design a compact link card for your website or README.
+          Create up to {embedLimit} custom embeds ({existingEmbedCount} used).
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Premium increases the limit from 3 to 15 custom embeds.
         </p>
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Content</CardTitle>
-            <CardDescription>
-              Changes appear in the preview instantly.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            <div className="grid gap-2">
-              <Label htmlFor="embed-title">Title</Label>
-              <Input
-                id="embed-title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                maxLength={80}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="embed-description">Description</Label>
-              <Textarea
-                id="embed-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                maxLength={160}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="embed-url">Destination URL</Label>
-              <Input
-                id="embed-url"
-                type="url"
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Theme</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {(["light", "dark"] as const).map((option) => {
-                  const Icon = option === "light" ? Sun : Moon
-                  return (
-                    <Button
-                      key={option}
-                      type="button"
-                      variant={theme === option ? "secondary" : "outline"}
-                      className="capitalize"
-                      onClick={() => setTheme(option)}
-                    >
-                      <Icon className="size-4" />
-                      {option}
-                    </Button>
-                  )
-                })}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <ProjectEmbedEditor
+          embeds={embeds}
+          onEmbedsChange={setEmbeds}
+          defaultEmbedName={`embed-${existingEmbedCount + embeds.length + 1}`}
+          maxEmbeds={remainingEmbeds}
+          showSlug
+          addInDialog
+        />
 
-        <div className="flex flex-col gap-4 lg:sticky lg:top-20">
+        <aside className="lg:sticky lg:top-20">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Preview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex min-h-40 items-center justify-center rounded-md border border-dashed bg-muted/40 p-5">
-                <div
-                  className="w-full max-w-xs rounded border p-4"
-                  style={{
-                    backgroundColor: colors.background,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  }}
-                >
-                  <p className="text-sm leading-5 font-semibold">
-                    {title || "Untitled embed"}
-                  </p>
-                  {description && (
-                    <p
-                      className="mt-1 text-xs leading-[18px]"
-                      style={{ color: colors.muted }}
-                    >
-                      {description}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Embed code</CardTitle>
+              <CardTitle className="text-lg">Save embeds</CardTitle>
+              <CardDescription>
+                Your embeds are published immediately.
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <code className="max-h-32 overflow-auto rounded-md border bg-muted px-3 py-2 text-xs leading-relaxed break-all">
-                {embedHtml}
-              </code>
-              <Button onClick={() => void copyEmbed()}>
-                {copied ? (
-                  <Check className="size-4" />
-                ) : (
-                  <Copy className="size-4" />
-                )}
-                {copied ? "Copied" : "Copy code"}
+              {error && (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              )}
+              {notice && (
+                <p className="text-sm text-muted-foreground" role="status">
+                  {notice}
+                </p>
+              )}
+              <Button
+                type="button"
+                onClick={() => void submitEmbeds()}
+                disabled={saving || embeds.length === 0 || !profileSlug}
+              >
+                {saving && <Loader2 className="size-4 animate-spin" />}
+                {saving ? "Creating" : "Create embeds"}
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/account/embeds">My embeds</Link>
               </Button>
             </CardContent>
           </Card>
-        </div>
+        </aside>
       </div>
     </main>
   )

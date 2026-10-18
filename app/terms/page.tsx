@@ -22,7 +22,7 @@ const sections = [
   {
     title: "1. About the service",
     paragraphs: [
-      "EmbedCatalog is an online catalog for discovering projects and creating or displaying embeds. Some features require an account; some submission and promotional services may be paid.",
+      "EmbedCatalog is an online catalog for discovering projects and creating or displaying embeds. Some features require an account, such as submitting projects and custom embeds, upvoting, bookmarking, and maintaining a public profile; some submission and promotional services may be paid.",
     ],
   },
   {
@@ -38,6 +38,7 @@ const sections = [
       "You retain ownership of content you submit. You grant the operator a worldwide, non-exclusive, royalty-free license to host, reproduce, adapt for formatting, publish, display, distribute, and promote that content in connection with EmbedCatalog and its related channels.",
       "You confirm that you own or have permission to submit the content, that it is accurate enough for publication, and that its publication does not violate law, privacy, confidentiality, intellectual-property, publicity, or other rights.",
       "Published listings are public. Do not submit confidential information or personal data that should not be publicly displayed.",
+      "User content includes your profile (public username, display name, avatar, Markdown description, and social links), projects, and custom embeds. Your profile and your published embeds are public, and embed images may be used by anyone on other websites through their public URLs. Custom embeds are reviewed before publication.",
     ],
   },
   {
@@ -45,6 +46,7 @@ const sections = [
     paragraphs: [
       "You may not use the service for unlawful, fraudulent, abusive, infringing, harmful, misleading, or automated activity that burdens or compromises the service. We may review, reject, restrict, edit for formatting, unpublish, or remove content or accounts that breach these Terms or create risk.",
       "We do not promise to monitor every listing or endorse any listed project.",
+      "You may not impersonate others, post misleading or abusive profile descriptions or embeds, or manipulate upvotes, bookmarks, views, or other statistics, including by using multiple accounts or automated tools. We may remove such activity and adjust counters.",
     ],
   },
   {
@@ -64,7 +66,7 @@ const sections = [
   {
     title: "7. Third-party services",
     paragraphs: [
-      "The service links to or relies on third parties, including Supabase, analytics providers, PayPal, hosting providers, project websites, and social networks. We do not control their availability, content, security, or privacy practices. Use them at your own risk and review their terms. PayPal is used for direct payments arranged outside the website; the website does not operate or control PayPal's payment infrastructure.",
+      "The service links to or relies on third parties, including Supabase, Resend (email delivery), hCaptcha for automated-abuse protection, analytics providers, PayPal, hosting providers, project websites, and social networks. We do not control their availability, content, security, or privacy practices. Use them at your own risk and review their terms. PayPal is used for direct payments arranged outside the website; the website does not operate or control PayPal's payment infrastructure.",
     ],
   },
   {
@@ -94,7 +96,7 @@ export default function TermsPage() {
     <main className="site-container py-10">
       <h1 className="text-2xl font-semibold">Terms of Service</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Last updated: September 19, 2026
+        Last updated: October 18, 2026
       </p>
 
       <p className="mt-6 leading-relaxed text-muted-foreground">

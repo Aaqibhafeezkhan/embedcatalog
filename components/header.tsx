@@ -9,6 +9,7 @@ import {
   Moon,
   Bookmark,
   FolderKanban,
+  Images,
   Plus,
   Settings,
   ShieldCheck,
@@ -21,6 +22,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 
 import { Button } from "components/ui/button"
 import { useAuth } from "components/auth-provider"
+import { supabase } from "lib/supabase/client"
 import { cn } from "lib/utils"
 import { siteConfig } from "lib/site"
 
@@ -28,6 +30,7 @@ const navLinks = [
   { label: "Home", href: "/" },
   { label: "About", href: "/about" },
   { label: "Embeds", href: "/embeds" },
+  { label: "Top creators", href: "/top-creators" },
   { label: "Hacktoberfest 2026", href: "/hacktoberfest-2026" },
 ]
 
@@ -49,12 +52,43 @@ function ThemeToggle() {
 
 function Header({ githubSlot }: { githubSlot?: React.ReactNode }) {
   const [open, setOpen] = React.useState(false)
+  const [profile, setProfile] = React.useState<{
+    ownerId: string
+    slug: string | null
+  } | null>(null)
   const { user, loading, isAdmin, signOut } = useAuth()
-  const avatarUrl = user?.user_metadata?.avatar_url
+  const profileSlug =
+    profile && profile.ownerId === user?.id ? profile.slug : null
+  const avatarUrl =
+    user?.user_metadata?.custom_avatar_url ?? user?.user_metadata?.avatar_url
   const displayName =
     (user?.user_metadata?.full_name as string | undefined) ??
     (user?.user_metadata?.user_name as string | undefined) ??
     user?.email
+
+  React.useEffect(() => {
+    if (!user) return
+
+    const userId = user.id
+    let cancelled = false
+
+    async function loadProfileSlug() {
+      const { data } = await supabase
+        .from("profiles")
+        .select("slug")
+        .eq("id", userId)
+        .maybeSingle()
+
+      if (!cancelled) {
+        setProfile({ ownerId: userId, slug: data?.slug ?? null })
+      }
+    }
+
+    void loadProfileSlug()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -117,13 +151,24 @@ function Header({ githubSlot }: { githubSlot?: React.ReactNode }) {
                         {user.email}
                       </DropdownMenu.Label>
                       <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                      {profileSlug && (
+                        <DropdownMenu.Item asChild>
+                          <Link
+                            href={`/user/${encodeURIComponent(profileSlug)}`}
+                            className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
+                          >
+                            <UserRound className="size-4" />
+                            Profile
+                          </Link>
+                        </DropdownMenu.Item>
+                      )}
                       <DropdownMenu.Item asChild>
                         <Link
-                          href="/account/create-project"
+                          href="/account/create"
                           className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
                         >
                           <Plus className="size-4" />
-                          Create project
+                          Create
                         </Link>
                       </DropdownMenu.Item>
                       <DropdownMenu.Item asChild>
@@ -141,7 +186,16 @@ function Header({ githubSlot }: { githubSlot?: React.ReactNode }) {
                           className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
                         >
                           <FolderKanban className="size-4" />
-                          My projects
+                          Projects
+                        </Link>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          href="/account/embeds"
+                          className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
+                        >
+                          <Images className="size-4" />
+                          Embeds
                         </Link>
                       </DropdownMenu.Item>
                       <DropdownMenu.Item asChild>
@@ -214,14 +268,26 @@ function Header({ githubSlot }: { githubSlot?: React.ReactNode }) {
           ))}
           <div className="mt-2 flex flex-col gap-2">
             {!loading && (
-              <Button size="sm" variant="outline" asChild>
-                <Link
-                  href={user ? "/account" : "/login"}
-                  onClick={() => setOpen(false)}
-                >
-                  {user ? "Account" : "Sign in"}
-                </Link>
-              </Button>
+              <>
+                {user && profileSlug && (
+                  <Button size="sm" variant="outline" asChild>
+                    <Link
+                      href={`/user/${encodeURIComponent(profileSlug)}`}
+                      onClick={() => setOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" asChild>
+                  <Link
+                    href={user ? "/account" : "/login"}
+                    onClick={() => setOpen(false)}
+                  >
+                    {user ? "Account" : "Sign in"}
+                  </Link>
+                </Button>
+              </>
             )}
             <Button size="sm" asChild>
               <Link href="/submit" onClick={() => setOpen(false)}>

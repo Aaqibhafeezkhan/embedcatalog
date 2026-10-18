@@ -66,7 +66,7 @@ const sections = [
   {
     title: "7. Third-party services",
     paragraphs: [
-      "The service links to or relies on third parties, including Supabase, Resend (email delivery), analytics providers, PayPal, hosting providers, project websites, and social networks. We do not control their availability, content, security, or privacy practices. Use them at your own risk and review their terms. PayPal is used for direct payments arranged outside the website; the website does not operate or control PayPal's payment infrastructure.",
+      "The service links to or relies on third parties, including Supabase, Resend (email delivery), hCaptcha for automated-abuse protection, analytics providers, PayPal, hosting providers, project websites, and social networks. We do not control their availability, content, security, or privacy practices. Use them at your own risk and review their terms. PayPal is used for direct payments arranged outside the website; the website does not operate or control PayPal's payment infrastructure.",
     ],
   },
   {
@@ -96,7 +96,7 @@ export default function TermsPage() {
     <main className="site-container py-10">
       <h1 className="text-2xl font-semibold">Terms of Service</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Last updated: October 11, 2026
+        Last updated: October 18, 2026
       </p>
 
       <p className="mt-6 leading-relaxed text-muted-foreground">

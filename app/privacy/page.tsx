@@ -20,7 +20,7 @@ export default function PrivacyPage() {
     <main className="site-container py-10">
       <h1 className="text-2xl font-semibold">Privacy Notice</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Last updated: October 11, 2026
+        Last updated: October 18, 2026
       </p>
       <div className="mt-6 flex flex-col gap-8 leading-relaxed text-muted-foreground">
         <section>
@@ -147,6 +147,14 @@ export default function PrivacyPage() {
             email address and the message content for this purpose. We may also
             use hosting, email, payment, security, and legal providers as needed
             to operate the service.
+          </p>
+          <p className="mt-2">
+            We use hCaptcha, provided by Intuition Machines, Inc., to help
+            protect the platform against automated abuse. When a CAPTCHA check
+            is performed, hCaptcha may process your IP address, browser and
+            device information, and interaction data, and may use cookies or
+            similar technologies. This processing is subject to hCaptcha&apos;s
+            Privacy Policy.
           </p>
           <p className="mt-2">
             Published project information, project URLs, social links, embeds,

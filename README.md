@@ -101,10 +101,12 @@ New submissions land in a moderation queue. Admins can approve, reject, mark a p
 ![EmbedCatalog create project](public/images/photo3.gif)
 
 1. Create an account and fill info about your project.
-2. Optionally add social links, and one or more embed variations.
-3. Send it for review from your account, with an optional note for the moderators.
-4. Once approved, your project is published, gets its own page, and its embeds become available to copy.
-5. Keep an eye on impressions and upvotes as more people discover it.
+2. Optionally add social links, screenshots, project information, and embed variations.
+3. Send the project for review from your account, with an optional note for the moderators.
+4. Once approved, your project is published, gets its own page, and its project embeds become available to copy.
+5. Create custom embeds from your account. Set an embed name, image title, description, and URL slug; custom embeds are published immediately on your profile and the embeds page.
+6. To feature a custom embed on a published project, request to link it to the project. The link is reviewed before it goes live.
+7. Keep an eye on embed views and upvotes as people discover and use your embeds.
 
 ## What projects are suitable?
 

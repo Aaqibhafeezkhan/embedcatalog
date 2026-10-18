@@ -169,7 +169,7 @@ export default function SubmissionTermsPage() {
     <main className="site-container py-10">
       <h1 className="text-2xl font-semibold">Project Submission Terms</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Last updated: October 11, 2026
+        Last updated: October 18, 2026
       </p>
 
       <p className="mt-6 leading-relaxed text-muted-foreground">
@@ -196,6 +196,13 @@ export default function SubmissionTermsPage() {
                 ) : (
                   <p key={index}>{block.text}</p>
                 )
+              )}
+              {section.title === "3. Submission Process" && (
+                <p>
+                  Some platform interactions may be protected with hCaptcha to
+                  help prevent automated abuse. For details about information
+                  processed during a CAPTCHA check, see our Privacy Notice.
+                </p>
               )}
               {section.title === "8. Contact and changes" && (
                 <p>

@@ -66,6 +66,50 @@ const embeds = [
   },
 ]
 
+const environmentVariables = [
+  {
+    name: "NEXT_PUBLIC_SITE_URL",
+    usedBy: "App",
+    purpose: "Canonical site URL (defaults to https://embedcatalog.com)",
+  },
+  {
+    name: "NEXT_PUBLIC_SUPABASE_URL",
+    usedBy: "App, image routes",
+    purpose: "Supabase project URL",
+  },
+  {
+    name: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    usedBy: "App, image routes",
+    purpose: "Public client for auth and data access",
+  },
+  {
+    name: "SUPABASE_SERVICE_ROLE_KEY",
+    usedBy: "sync-github-stats, newsletter API",
+    purpose: "Server-side GitHub stats updates and newsletter subscriptions",
+  },
+  {
+    name: "GITHUB_TOKEN",
+    usedBy: "sync-github-stats",
+    purpose: "Reads stars/forks/contributors from GitHub API",
+  },
+]
+
+const scripts = [
+  { name: "npm run start", description: "Runs the app in development mode" },
+  {
+    name: "npm run build",
+    description: "Builds Next.js; embed PNGs are rendered on request",
+  },
+  { name: "npm run serve", description: "Runs the production Next.js server" },
+  { name: "npm run prod", description: "Alias for build, used by Vercel" },
+  { name: "npm run lint", description: "Runs ESLint" },
+  { name: "npm run format", description: "Formats the codebase with Prettier" },
+  {
+    name: "npm run typecheck",
+    description: "Runs the TypeScript compiler in --noEmit mode",
+  },
+]
+
 export default function AboutPage() {
   return (
     <main className="site-container py-10">
@@ -163,7 +207,7 @@ export default function AboutPage() {
           <section>
             <h2 className="text-lg font-semibold">How it works</h2>
             <Image
-              src="/images/photo3.gif"
+              src="/images/photo3.png"
               alt="Creating a project in EmbedCatalog"
               width={1200}
               height={700}
@@ -181,16 +225,51 @@ export default function AboutPage() {
                 Create an account and fill in information about your project.
               </li>
               <li>
-                Optionally add social links and one or more embed variations.
+                Optionally add social links, screenshots, project information,
+                and embed variations.
               </li>
               <li>
                 Send it for review with an optional note for the moderators.
               </li>
               <li>
-                Once approved, your project is published and its embeds become
-                available to copy.
+                Once approved, your project is published, gets its own page, and
+                its project embeds become available to copy.
               </li>
-              <li>Track impressions and upvotes as people discover it.</li>
+              <li>
+                Create custom embeds from your account. Set an embed name, image
+                title, description, and URL slug; custom embeds are published
+                immediately on your profile and the embeds page.
+                <Image
+                  src="/images/photo4.png"
+                  alt="EmbedCatalog create embed"
+                  width={1200}
+                  height={700}
+                  className="mt-3 w-full rounded-xl border"
+                />
+                <Image
+                  src="/images/photo5.png"
+                  alt="EmbedCatalog embed modal"
+                  width={1200}
+                  height={700}
+                  className="mt-3 w-full rounded-xl border"
+                />
+              </li>
+              <li>
+                To feature a custom embed on a published project, request to
+                link it to the project. The link is reviewed before it goes
+                live.
+              </li>
+              <li>
+                Keep an eye on embed views and upvotes as people discover and
+                use your embeds.
+                <Image
+                  src="/images/photo6.png"
+                  alt="EmbedCatalog profile"
+                  width={1200}
+                  height={700}
+                  className="mt-3 w-full rounded-xl border"
+                />
+              </li>
             </ol>
           </section>
 
@@ -263,12 +342,12 @@ export default function AboutPage() {
               description. For example:
             </p>
             <Link
-              href="/projects/is-kit"
+              href="/user/admin/embed/my-embed"
               className="mt-4 inline-flex rounded-md border p-3 transition-opacity hover:opacity-80"
             >
               <Image
-                src="https://embedcatalog.com/embed/is-kit/5037b265.png"
-                alt="Custom is-kit embed"
+                src="https://embedcatalog.com/user/admin/embeds/my-embed.png"
+                alt="Custom embed example"
                 width={320}
                 height={84}
                 unoptimized
@@ -425,6 +504,108 @@ public         Static assets, logo, and preview images`}</code>
           </section>
 
           <section>
+            <h2 className="text-lg font-semibold">Running locally</h2>
+            <h3 className="mt-4 font-medium">Prerequisites</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 leading-relaxed text-muted-foreground">
+              <li>Node.js 20+</li>
+              <li>npm 10+</li>
+              <li>
+                Supabase project with the <code>projects</code>,{" "}
+                <code>project_embeds</code>, <code>project_upvotes</code>, and{" "}
+                <code>project_bookmarks</code> tables set up
+              </li>
+            </ul>
+
+            <h3 className="mt-6 font-medium">Quick start</h3>
+            <pre className="mt-2 overflow-x-auto rounded-xl border bg-muted p-4 text-sm leading-relaxed">
+              <code>{`# Clone the repository
+git clone https://github.com/EmbedCatalog/embedcatalog.git
+cd embedcatalog
+
+# Install dependencies
+npm install
+
+# Configure environment variables
+cp .env.example .env.local # create it if it doesn't exist yet, see below
+
+# Start the dev server
+npm run start`}</code>
+            </pre>
+            <p className="mt-2 leading-relaxed text-muted-foreground">
+              Open http://localhost:3000 to view the app.
+            </p>
+
+            <h3 className="mt-6 font-medium">Environment variables</h3>
+            <div className="mt-2 overflow-hidden rounded-xl border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Variable</TableHead>
+                    <TableHead>Used by</TableHead>
+                    <TableHead>Purpose</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {environmentVariables.map((item) => (
+                    <TableRow key={item.name}>
+                      <TableCell className="font-mono text-xs">
+                        {item.name}
+                      </TableCell>
+                      <TableCell>{item.usedBy}</TableCell>
+                      <TableCell className="whitespace-normal">
+                        {item.purpose}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <h3 className="mt-6 font-medium">Available scripts</h3>
+            <div className="mt-2 overflow-hidden rounded-xl border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Script</TableHead>
+                    <TableHead>What it does</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {scripts.map((item) => (
+                    <TableRow key={item.name}>
+                      <TableCell className="font-mono text-xs">
+                        {item.name}
+                      </TableCell>
+                      <TableCell className="whitespace-normal">
+                        {item.description}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <h3 className="mt-6 font-medium">Deployment</h3>
+            <p className="mt-2 leading-relaxed text-muted-foreground">
+              The app requires a Node.js-capable Next.js host. To deploy with
+              Vercel, import the GitHub repository as a Next.js project, keep
+              the root directory and output directory at their defaults, and add{" "}
+              <code>NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+              <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to the Production and
+              Preview environments. Dynamic embed images query
+              approved/published records from Supabase at request time. Set both
+              Supabase variables for Production and Preview deployments; they
+              are also needed during build because <code>NEXT_PUBLIC_*</code>{" "}
+              values are bundled into the client. Set{" "}
+              <code>NEXT_PUBLIC_SITE_URL</code> to the canonical production URL
+              in the Production environment if it differs from the default.
+              Vercel deploys pushes to the connected branches automatically.
+              GitHub Pages static hosting is not supported because user profile
+              routes are resolved at runtime.
+            </p>
+          </section>
+
+          <section>
             <h2 className="text-lg font-semibold">Data synchronization</h2>
             <p className="mt-2 leading-relaxed text-muted-foreground">
               A scheduled GitHub Action runs the stats synchronization script
@@ -458,7 +639,7 @@ public         Static assets, logo, and preview images`}</code>
               className="mt-4 block overflow-hidden rounded-xl border"
             >
               <Image
-                src="https://api.star-history.com/svg?repos=embedcatalog/embedcatalog&type=date&legend=top-left"
+                src="https://api.star-history.com/chart?repos=embedcatalog/embedcatalog&type=date&legend=top-left"
                 alt="EmbedCatalog star history"
                 width={900}
                 height={500}

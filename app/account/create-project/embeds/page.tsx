@@ -54,6 +54,9 @@ function CreateProjectEmbedsPage() {
         <ProjectEmbedEditor
           embeds={draft.embeds}
           fallbackTitle={draft.title}
+          defaultEmbedName={`embed-${draft.embeds.length + 1}`}
+          showSlug
+          addInDialog
           onEmbedsChange={(embeds) =>
             setDraft((current) => ({ ...current, embeds }))
           }

@@ -15,9 +15,11 @@ import {
   Settings,
   ShieldCheck,
   Trash2,
+  Users,
 } from "lucide-react"
 
 import { BookmarkedEmbeds } from "components/bookmarked-embeds"
+import { FollowingList } from "components/following-list"
 import { Button } from "components/ui/button"
 import {
   Card,
@@ -52,13 +54,13 @@ type OwnedProject = {
 function AccountPage({
   initialSection = "settings",
 }: {
-  initialSection?: "settings" | "projects" | "bookmarks"
+  initialSection?: "settings" | "projects" | "bookmarks" | "following"
 }) {
   const router = useRouter()
   const { user, loading, isAdmin, signOut } = useAuth()
   const { notify } = useNotification()
   const [activeSection, setActiveSection] = React.useState<
-    "settings" | "projects" | "bookmarks"
+    "settings" | "projects" | "bookmarks" | "following"
   >(initialSection)
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
   const [avatarUploading, setAvatarUploading] = React.useState(false)
@@ -479,6 +481,14 @@ function AccountPage({
               <Bookmark className="size-4" />
               Bookmarks
             </Button>
+            <Button
+              variant={activeSection === "following" ? "secondary" : "ghost"}
+              className="flex-1 justify-start md:flex-none"
+              onClick={() => setActiveSection("following")}
+            >
+              <Users className="size-4" />
+              Following
+            </Button>
             {isAdmin && (
               <Button
                 variant="ghost"
@@ -506,165 +516,175 @@ function AccountPage({
 
         <main>
           {activeSection === "settings" ? (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl">Settings</CardTitle>
-                <CardDescription>Manage your profile.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form className="flex flex-col gap-5" onSubmit={saveProfile}>
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={(event) => void changeAvatar(event)}
-                  />
-                  <div className="flex items-center gap-4">
-                    <div className="relative size-14 shrink-0">
-                      {avatarUrl ? (
-                        <Image
-                          src={avatarUrl}
-                          alt={displayName ?? "Avatar"}
-                          width={56}
-                          height={56}
-                          className="size-14 rounded-full"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="flex size-14 items-center justify-center rounded-full bg-muted text-lg font-medium text-muted-foreground">
-                          {displayName?.[0]?.toUpperCase() ?? "?"}
-                        </div>
-                      )}
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="icon"
-                        className="absolute -right-1 -bottom-1 size-7 rounded-full border shadow-sm"
-                        aria-label="Change avatar"
-                        title={
-                          avatarUploading ? "Uploading avatar" : "Change avatar"
-                        }
-                        disabled={avatarUploading}
-                        onClick={() => avatarInputRef.current?.click()}
-                      >
-                        {avatarUploading ? (
-                          <Loader2 className="size-3.5 animate-spin" />
+            <div className="flex flex-col gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">Settings</CardTitle>
+                  <CardDescription>Manage your profile.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form className="flex flex-col gap-5" onSubmit={saveProfile}>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(event) => void changeAvatar(event)}
+                    />
+                    <div className="flex items-center gap-4">
+                      <div className="relative size-14 shrink-0">
+                        {avatarUrl ? (
+                          <Image
+                            src={avatarUrl}
+                            alt={displayName ?? "Avatar"}
+                            width={56}
+                            height={56}
+                            className="size-14 rounded-full"
+                            unoptimized
+                          />
                         ) : (
-                          <Pencil className="size-3.5" />
+                          <div className="flex size-14 items-center justify-center rounded-full bg-muted text-lg font-medium text-muted-foreground">
+                            {displayName?.[0]?.toUpperCase() ?? "?"}
+                          </div>
                         )}
-                      </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="absolute -right-1 -bottom-1 size-7 rounded-full border shadow-sm"
+                          aria-label="Change avatar"
+                          title={
+                            avatarUploading
+                              ? "Uploading avatar"
+                              : "Change avatar"
+                          }
+                          disabled={avatarUploading}
+                          onClick={() => avatarInputRef.current?.click()}
+                        >
+                          {avatarUploading ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Pencil className="size-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{displayName}</p>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {user.email}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{displayName}</p>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {user.email}
+                    {avatarError && (
+                      <p className="text-sm text-destructive" role="alert">
+                        {avatarError}
                       </p>
-                    </div>
-                  </div>
-                  {avatarError && (
-                    <p className="text-sm text-destructive" role="alert">
-                      {avatarError}
-                    </p>
-                  )}
-                  <div className="flex flex-col gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="profile-nickname">Nickname</Label>
-                      <Input
-                        id="profile-nickname"
-                        value={profileSlug}
-                        readOnly
-                        aria-readonly="true"
-                        autoComplete="off"
-                        className="bg-muted text-muted-foreground"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        This is your public profile URL. You can choose it once
-                        during initial setup.
-                      </p>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="profile-name">Name</Label>
-                      <Input
-                        id="profile-name"
-                        name="name"
-                        autoComplete="name"
-                        defaultValue={
-                          (user.user_metadata?.full_name as
-                            string | undefined) ??
-                          (user.user_metadata?.user_name as
-                            string | undefined) ??
-                          ""
-                        }
-                        placeholder="Your name"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="profile-bio">About you (optional)</Label>
-                      <Textarea
-                        id="profile-bio"
-                        value={profileBio}
-                        onChange={(event) => setProfileBio(event.target.value)}
-                        maxLength={1000}
-                        rows={5}
-                        placeholder="Tell people about yourself. Markdown is supported."
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Shown publicly on your profile. Markdown is supported.
-                      </p>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="profile-twitter">Twitter</Label>
-                      <Input
-                        id="profile-twitter"
-                        name="twitter"
-                        type="url"
-                        autoComplete="url"
-                        defaultValue={profileSocials?.twitter ?? ""}
-                        placeholder="https://twitter.com/username"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="profile-youtube">YouTube</Label>
-                      <Input
-                        id="profile-youtube"
-                        name="youtube"
-                        type="url"
-                        autoComplete="url"
-                        defaultValue={profileSocials?.youtube ?? ""}
-                        placeholder="https://youtube.com/@channel"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="profile-github">GitHub</Label>
-                      <Input
-                        id="profile-github"
-                        name="github"
-                        type="url"
-                        autoComplete="url"
-                        defaultValue={profileSocials?.github ?? ""}
-                        placeholder="https://github.com/username"
-                      />
-                    </div>
-                  </div>
-                  {profileError && (
-                    <p className="text-sm text-destructive" role="alert">
-                      {profileError}
-                    </p>
-                  )}
-                  <Button
-                    className="w-full"
-                    type="submit"
-                    disabled={profileSaving}
-                  >
-                    {profileSaving && (
-                      <Loader2 className="size-4 animate-spin" />
                     )}
-                    {profileSaving ? "Saving profile" : "Save profile"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                    <div className="flex flex-col gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="profile-nickname">Nickname</Label>
+                        <Input
+                          id="profile-nickname"
+                          value={profileSlug}
+                          readOnly
+                          aria-readonly="true"
+                          autoComplete="off"
+                          className="bg-muted text-muted-foreground"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          This is your public profile URL. You can choose it
+                          once during initial setup.
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="profile-name">Name</Label>
+                        <Input
+                          id="profile-name"
+                          name="name"
+                          autoComplete="name"
+                          defaultValue={
+                            (user.user_metadata?.full_name as
+                              string | undefined) ??
+                            (user.user_metadata?.user_name as
+                              string | undefined) ??
+                            ""
+                          }
+                          placeholder="Your name"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="profile-bio">
+                          About you (optional)
+                        </Label>
+                        <Textarea
+                          id="profile-bio"
+                          value={profileBio}
+                          onChange={(event) =>
+                            setProfileBio(event.target.value)
+                          }
+                          maxLength={1000}
+                          rows={5}
+                          placeholder="Tell people about yourself. Markdown is supported."
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Shown publicly on your profile. Markdown is supported.
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="profile-twitter">Twitter</Label>
+                        <Input
+                          id="profile-twitter"
+                          name="twitter"
+                          type="url"
+                          autoComplete="url"
+                          defaultValue={profileSocials?.twitter ?? ""}
+                          placeholder="https://twitter.com/username"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="profile-youtube">YouTube</Label>
+                        <Input
+                          id="profile-youtube"
+                          name="youtube"
+                          type="url"
+                          autoComplete="url"
+                          defaultValue={profileSocials?.youtube ?? ""}
+                          placeholder="https://youtube.com/@channel"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="profile-github">GitHub</Label>
+                        <Input
+                          id="profile-github"
+                          name="github"
+                          type="url"
+                          autoComplete="url"
+                          defaultValue={profileSocials?.github ?? ""}
+                          placeholder="https://github.com/username"
+                        />
+                      </div>
+                    </div>
+                    {profileError && (
+                      <p className="text-sm text-destructive" role="alert">
+                        {profileError}
+                      </p>
+                    )}
+                    <Button
+                      className="w-full"
+                      type="submit"
+                      disabled={profileSaving}
+                    >
+                      {profileSaving && (
+                        <Loader2 className="size-4 animate-spin" />
+                      )}
+                      {profileSaving ? "Saving profile" : "Save profile"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          ) : activeSection === "following" ? (
+            <FollowingList userId={user.id} />
           ) : activeSection === "projects" ? (
             <Card>
               <CardHeader>

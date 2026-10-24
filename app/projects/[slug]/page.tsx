@@ -1,8 +1,9 @@
 import * as React from "react"
 import type { Metadata } from "next"
 import Link from "next/link"
+import Image from "next/image"
 import { notFound } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, UserRound } from "lucide-react"
 
 import { Embed } from "components/ui/embed"
 import { Button } from "components/ui/button"
@@ -108,6 +109,17 @@ export default async function ProjectPage({
     .eq("project_id", project.id)
     .order("position", { ascending: true })
 
+  const { data: ownerProfiles } = project.ownerId
+    ? await supabase.rpc("get_public_profiles", {
+        p_profile_ids: [project.ownerId],
+      })
+    : { data: null }
+  const ownerProfile = ownerProfiles?.[0]
+  const addedBy =
+    ownerProfile && !siteConfig.hidden.includes(ownerProfile.slug)
+      ? ownerProfile
+      : null
+
   return (
     <main className="site-container py-10">
       <div className="mx-auto w-full max-w-6xl">
@@ -164,6 +176,31 @@ export default async function ProjectPage({
               <p className="text-sm text-muted-foreground">
                 Added {formatDate(project.createdAt)}
               </p>
+              {addedBy && (
+                <Link
+                  href={`/user/${encodeURIComponent(addedBy.slug)}`}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <span>by</span>
+                  <span className="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
+                    {addedBy.avatar_url ? (
+                      <Image
+                        src={addedBy.avatar_url}
+                        alt=""
+                        width={20}
+                        height={20}
+                        unoptimized
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <UserRound className="size-3" />
+                    )}
+                  </span>
+                  <span className="font-medium">
+                    {addedBy.display_name || addedBy.slug}
+                  </span>
+                </Link>
+              )}
               <ProjectImpressionTracker
                 projectId={project.id}
                 initialCount={project.impressionsCount}

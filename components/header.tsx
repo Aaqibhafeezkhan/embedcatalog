@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Sun,
   UserRound,
+  Users,
   X,
 } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -205,6 +206,15 @@ function Header({ githubSlot }: { githubSlot?: React.ReactNode }) {
                         >
                           <Bookmark className="size-4" />
                           Bookmarks
+                        </Link>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item asChild>
+                        <Link
+                          href="/account/following"
+                          className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent"
+                        >
+                          <Users className="size-4" />
+                          Following
                         </Link>
                       </DropdownMenu.Item>
                       {isAdmin && (

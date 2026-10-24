@@ -20,6 +20,8 @@ import { Label } from "components/ui/label"
 import { Textarea } from "components/ui/textarea"
 import { ProjectInfoMarkdown } from "components/project-info-markdown"
 import { supabase } from "lib/supabase/client"
+import { bindGithubRepo } from "lib/embed-variables"
+import { isValidEmbedSlug, slugifyEmbed } from "lib/standalone-embed-slug"
 import { useCreateProjectDraft } from "./draft-context"
 
 const maxProjectsPerAccount = 3
@@ -154,21 +156,54 @@ function CreateProjectPage() {
     }
 
     if (embeds.length > 0) {
-      const { error: embedsError } = await supabase
-        .from("project_embeds")
-        .insert(
-          embeds.map((embed, position) => ({
-            project_id: project.id,
-            title: embed.title.trim() || name,
-            description: embed.description.trim(),
-            position,
-          }))
-        )
+      const slugs = embeds.map((embed) =>
+        slugifyEmbed(embed.slug?.trim() || embed.name || "")
+      )
+      let embedsErrorMessage: string | null = null
 
-      if (embedsError) {
+      if (slugs.some((embedSlug) => !isValidEmbedSlug(embedSlug))) {
+        embedsErrorMessage = "Invalid embed URL."
+      } else {
+        const { data: created, error: embedsError } = await supabase
+          .from("standalone_embeds")
+          .insert(
+            embeds.map((embed, index) => ({
+              owner_id: ownerId,
+              slug: slugs[index],
+              title: embed.name?.trim() || embed.title.trim() || name,
+              image_title: bindGithubRepo(embed.title.trim(), embed.githubRepo),
+              image_description: bindGithubRepo(
+                embed.description.trim(),
+                embed.githubRepo
+              ),
+              status: "approved" as const,
+            }))
+          )
+          .select("id")
+
+        if (embedsError || !created) {
+          embedsErrorMessage =
+            embedsError?.code === "23505"
+              ? "An embed with this embed URL already exists in your account."
+              : (embedsError?.message ?? "Could not create embeds.")
+        } else {
+          // The project is still a draft, so linking needs no moderation.
+          const { error: linkError } = await supabase
+            .from("standalone_embeds")
+            .update({ project_id: project.id })
+            .in(
+              "id",
+              created.map((item) => item.id)
+            )
+            .eq("owner_id", ownerId)
+          if (linkError) embedsErrorMessage = linkError.message
+        }
+      }
+
+      if (embedsErrorMessage) {
         setSaving(false)
         setSaveError(
-          `Project was created, but embeds were not saved: ${embedsError.message}`
+          `Project was created, but embeds were not saved: ${embedsErrorMessage}`
         )
         return
       }

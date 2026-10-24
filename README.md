@@ -76,7 +76,7 @@ Beyond the built-in badges, every project can design its own custom embed (title
 
 Example:
 
-[![is-kit](https://embedcatalog.com/embed/is-kit/5037b265.png)](https://embedcatalog.com/projects/is-kit)
+[![my-embed](https://embedcatalog.com/user/admin/embeds/my-embed.png)](https://embedcatalog.com/user/admin/embed/my-embed)
 
 ### Project pages
 

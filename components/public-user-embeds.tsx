@@ -313,7 +313,6 @@ function PublicUserEmbeds({ login }: { login: string }) {
         )
         .eq("owner_id", profile.id)
         .eq("status", "approved")
-        .is("project_id", null)
         .order("created_at", { ascending: false })
 
       if (cancelled) return

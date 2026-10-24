@@ -44,10 +44,7 @@ function GithubIcon(props: React.ComponentProps<"svg">) {
   )
 }
 
-export async function generateStaticParams() {
-  const projects = await getPublishedProjects()
-  return projects.map((project) => ({ slug: project.slug }))
-}
+export const dynamic = "force-dynamic"
 
 export async function generateMetadata({
   params,

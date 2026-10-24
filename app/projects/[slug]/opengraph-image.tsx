@@ -7,12 +7,7 @@ import { siteConfig } from "lib/site"
 export const alt = "Project preview"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
-export const dynamic = "force-static"
-
-export async function generateStaticParams() {
-  const projects = await getPublishedProjects()
-  return projects.map((project) => ({ slug: project.slug }))
-}
+export const dynamic = "force-dynamic"
 
 export default async function OpenGraphImage({
   params,

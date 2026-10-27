@@ -30,6 +30,7 @@ import { getPublicStandaloneEmbedSrc } from "lib/embed"
 import { siteConfig } from "lib/site"
 import type { StandaloneEmbedTheme } from "lib/standalone-embed-image"
 import { supabase } from "lib/supabase/client"
+import { cn } from "lib/utils"
 import { ProjectsGrid, type Project } from "components/projects-grid"
 
 type PublicEmbed = Pick<
@@ -521,22 +522,7 @@ function PublicUserEmbeds({ login }: { login: string }) {
                 />
               ))}
             </section>
-          ) : (
-            <section
-              id="profile-embeds-panel"
-              role="tabpanel"
-              aria-labelledby="profile-embeds-tab"
-              className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-            >
-              {embeds.map((embed) => (
-                <PublicEmbedCard
-                  key={embed.id}
-                  profileSlug={login}
-                  embed={embed}
-                />
-              ))}
-            </section>
-          ))}
+          )}
 
           {activeTab === "projects" && (
             <section
